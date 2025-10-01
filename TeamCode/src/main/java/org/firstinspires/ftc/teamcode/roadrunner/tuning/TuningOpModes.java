@@ -44,8 +44,8 @@ public final class TuningOpModes {
 
                 List<Encoder> leftEncs = new ArrayList<>(), rightEncs = new ArrayList<>();
                 List<Encoder> parEncs = new ArrayList<>(), perpEncs = new ArrayList<>();
-                parEncs.add(new PinpointEncoder(pd.pinpoint,false, pd.leftBack));
-                perpEncs.add(new PinpointEncoder(pd.pinpoint,true, pd.leftBack));
+                parEncs.add(new PinpointEncoder(pd.pinpoint,false, pd.middle));
+                perpEncs.add(new PinpointEncoder(pd.pinpoint,true, pd.middle));
 
                 return new DriveView(
                         DriveType.MECANUM,
@@ -55,12 +55,10 @@ public final class TuningOpModes {
                         MecanumDrive.PARAMS.maxProfileAccel,
                         hardwareMap.getAll(LynxModule.class),
                         Arrays.asList(
-                                pd.leftFront,
-                                pd.leftBack
+                                pd.left
                         ),
                         Arrays.asList(
-                                pd.rightFront,
-                                pd.rightBack
+                                pd.right
                         ),
                         leftEncs,
                         rightEncs,
@@ -70,8 +68,12 @@ public final class TuningOpModes {
                         pd.voltageSensor,
                         () -> new MotorFeedforward(MecanumDrive.PARAMS.kS,
                                 MecanumDrive.PARAMS.kV / MecanumDrive.PARAMS.inPerTick,
-                                MecanumDrive.PARAMS.kA / MecanumDrive.PARAMS.inPerTick)
+                                MecanumDrive.PARAMS.kA / MecanumDrive.PARAMS.inPerTick),
+                        Arrays.asList(
+                                pd.middle
+                        )
                 );
+
             };
         } else if (DRIVE_CLASS.equals(MecanumDrive.class)) {
             dvf = hardwareMap -> {
@@ -121,7 +123,8 @@ public final class TuningOpModes {
                         md.voltageSensor,
                         () -> new MotorFeedforward(MecanumDrive.PARAMS.kS,
                                 MecanumDrive.PARAMS.kV / MecanumDrive.PARAMS.inPerTick,
-                                MecanumDrive.PARAMS.kA / MecanumDrive.PARAMS.inPerTick)
+                                MecanumDrive.PARAMS.kA / MecanumDrive.PARAMS.inPerTick),
+                    new ArrayList<>()
                 );
             };
         } else if (DRIVE_CLASS.equals(TankDrive.class)) {
@@ -164,7 +167,8 @@ public final class TuningOpModes {
                         td.voltageSensor,
                         () -> new MotorFeedforward(TankDrive.PARAMS.kS,
                                 TankDrive.PARAMS.kV / TankDrive.PARAMS.inPerTick,
-                                TankDrive.PARAMS.kA / TankDrive.PARAMS.inPerTick)
+                                TankDrive.PARAMS.kA / TankDrive.PARAMS.inPerTick),
+                        new ArrayList<>()
                 );
             };
         } else {

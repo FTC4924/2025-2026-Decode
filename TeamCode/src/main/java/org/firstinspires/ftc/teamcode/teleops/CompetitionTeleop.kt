@@ -15,29 +15,15 @@ abstract class CompetitionTeleop : OpMode() {
     private lateinit var drive: PinpointDrive
     private lateinit var g1: PandaGamepad
     private lateinit var g2: PandaGamepad
-    private lateinit var scoringClaw: SpecimenClaw
-    private lateinit var sampleClaw: SampleClaw
-    private lateinit var collectionArm: NewCollectionArm
-    private lateinit var scoringArm: ScoringArm
-    private lateinit var hanging: Hanging
     private var headingOffset: Double = 0.0
     private val dash: FtcDashboard = FtcDashboard.getInstance()
     private var runningActions: MutableList<Action> = ArrayList()
     private var lastTime: Double = 0.0
 
-
-
-        override fun init() {
+    override fun init() {
         drive = PinpointDrive(hardwareMap, Pose2d(0.0, 0.0, 0.0))
         g1 = PandaGamepad(gamepad1)
         g2 = PandaGamepad(gamepad2)
-        scoringClaw = SpecimenClaw(hardwareMap)
-        sampleClaw = SampleClaw(hardwareMap)
-        collectionArm = NewCollectionArm(hardwareMap)
-        scoringArm = ScoringArm(hardwareMap)
-        hanging = Hanging(hardwareMap)
-
-
     }
 
     override fun start() {
@@ -119,148 +105,10 @@ abstract class CompetitionTeleop : OpMode() {
             }
         }
         //Climbing***************************
-        if (g1.rightStickY.isActive()) {
-            runningActions.add(hanging.manual(-g1.rightStickY.component * deltaTime))
-        }
-        if (g1.dpadUp.justPressed()) {
-            runningActions.add(hanging.up())
-            //runningActions.add(collectionArm.hang())
-        }
-        if (g1.dpadDown.justPressed()) {
-            runningActions.add(hanging.down())
-        }
+
 
         if (g1.b.justPressed()) headingOffset = rawHeading
-        /*90 degree turn idea
-        if (g1.leftBumper.justPressed()) {
-            //Turn left to the nearest 90 degree increment
-            curPose = drive.getPinpoint().positionRR
-            var headTo = nearestCompass(rawHeading-headingOffset, "left")
-            headTo += -headingOffset
-            runBlocking(
-                drive.actionBuilder(curPose)
-                    .turnTo(headTo)
-                    .build()
-            )
-        }
-        if (g1.rightBumper.justPressed()){
-            //Turn right to the nearest 90 degree increment
-            curPose = Pose2d(0.0, 0.0, rawHeading-headingOffset)
-            var headTo = nearestCompass(rawHeading-headingOffset, "right")
-            headTo += -headingOffset
-            runBlocking(
-                drive.actionBuilder(curPose)
-                    .turnTo(headTo)
-                    .build()
-            )
-        }*/
-
-        /* driver 2 */
-        // Specimen Arm***********************************************************
-        telemetry.addData("scoringArm position", scoringArm.targetPosition)
-        if (g2.dpadDown.justPressed()) {
-            val notCollecting = scoringArm.targetPosition - scoringArm.scoringArmOffset >= ArmState.ThroughBars.position-100
-            if (notCollecting) {
-                runningActions.add(scoringArm.collect())
-                runningActions.add(
-                    SequentialAction(
-                        scoringClaw.close(),
-                        scoringClaw.approach()
-                    )
-                )
-            } else if (scoringClaw.clawState == ClawState.Close) {
-                runningActions.add(scoringClaw.approach())
-            } else {
-                runningActions.add(scoringClaw.close())
-            }
-        }
-        if (g2.dpadLeft.justPressed()) {
-            if (scoringClaw.clawState == ClawState.Close) {
-                runningActions.add(scoringClaw.open())
-            } else {
-                runningActions.add(scoringClaw.close())
-            }
-        }
-        if (g2.dpadRight.justPressed()) {
-            runningActions.add(scoringArm.throughBars())
-        }
-        if (g2.dpadUp.justPressed()) {
-            val notScoring = scoringArm.targetPosition - scoringArm.scoringArmOffset <= ArmState.ThroughBars.position+100
-            if (notScoring) {
-                runningActions.add(scoringArm.score())
-                runningActions.add(scoringClaw.close())
-            } else if (scoringClaw.clawState == ClawState.Close) {
-                runningActions.add(scoringClaw.open())
-            } else {
-                runningActions.add(scoringClaw.close())
-            }
-        }
-        if (g2.leftBumper.justPressed()) {   //ONLY USE IN COLLECTION POSE
-            runningActions.add(scoringClaw.inBox())
-            scoringArm.resetArmPosition()
-            runningActions.add(scoringArm.collect())
-        }
-
-        if (g2.leftStickY.isActive()) runningActions.add(scoringArm.manual(g2.leftStickY.component * deltaTime))
-
-
-        //Collection System*************************************
-        telemetry.addData("collection Arm target position", collectionArm.targetPosition)
-        telemetry.addData("collection Arm offset", collectionArm.collectionArmOffset)
-        telemetry.addData("collection Arm current position", collectionArm.collectionArmOffset)
-
-        if (g2.a.justPressed()) {
-
-            val collectionArmMid: Int = -2100;
-
-            //current position >= "mid", we defined mid as 82ticks above down position
-            var isAboveMid: Boolean  = collectionArm.targetPosition - collectionArm.collectionArmOffset >= collectionArmMid
-
-            if (isAboveMid) {
-                runningActions.add(sampleClaw.open())
-                runningActions.add(collectionArm.down())
-
-            } else if (sampleClaw.sampleClawState == SampleClaw.SampleClawState.Close) {
-                runningActions.add(sampleClaw.open())
-            } else {
-                runningActions.add(sampleClaw.close())
-            }
-
-        }
-
-        if (g2.x.justPressed()) runningActions.add(sampleClaw.open())
-
-        if (g2.b.justPressed()) runningActions.add(sampleClaw.close())
-
-        if (g2.y.justPressed()) {
-            var collectionArmMid: Int = -2100;
-            //current position <= "mid", we defined mid as 82ticks above down position
-            var isbelowMid: Boolean  = collectionArm.targetPosition - collectionArm.collectionArmOffset <= collectionArmMid
-            if (isbelowMid) { //slight problem, hanging counts as above mid, so on startup D2 should press "A"
-                runningActions.add(sampleClaw.close())
-                runningActions.add(collectionArm.offGround())
-
-            } else if (sampleClaw.sampleClawState == SampleClaw.SampleClawState.Close) {
-                runningActions.add(sampleClaw.open())
-            } else {
-                runningActions.add(sampleClaw.close())
-            }
-
-        }
-
-
-        if (g2.rightBumper.justActive()) {   //ONLY USE IN DOWN POSE
-            //runningActions.add(collectionArm.reset())
-            collectionArm.resetArmPosition()
-            runningActions.add(collectionArm.down())
-        }
-
-        //Collection Arm Manual Mode
-        if (g2.rightStickY.isActive()) runningActions.add(collectionArm.manual(g2.rightStickY.component * deltaTime))
-
     }
-
-
 
     protected abstract val allianceColor: AllianceColor
 }

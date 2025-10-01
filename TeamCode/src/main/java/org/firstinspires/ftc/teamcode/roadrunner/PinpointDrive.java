@@ -21,7 +21,7 @@ import org.firstinspires.ftc.teamcode.roadrunner.messages.PoseMessage;
  * Portions of this code made and released under the MIT License by Gobilda (Base 10 Assets, LLC)
  * Unless otherwise noted, comments are from Gobilda
  */
-public class PinpointDrive extends MecanumDrive {
+public class PinpointDrive extends IHDrive {
     public static Params PARAMS = new Params();
     public GoBildaPinpointDriverRR pinpoint;
     private Pose2d lastPinpointPose = pose;
