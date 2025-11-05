@@ -105,9 +105,9 @@ public class IHDrive {
 
         // TODO: make sure your config has motors with these names (or change them)
         //   see https://ftc-docs.firstinspires.org/en/latest/hardware_and_software_configuration/configuring/index.html
-        left = hardwareMap.get(DcMotorEx.class, "leftFront");
-        middle = hardwareMap.get(DcMotorEx.class, "leftBack");
-        right = hardwareMap.get(DcMotorEx.class, "rightFront");
+        left = hardwareMap.get(DcMotorEx.class, "left");
+        middle = hardwareMap.get(DcMotorEx.class, "middle");
+        right = hardwareMap.get(DcMotorEx.class, "right");
 
 
         left.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
@@ -116,6 +116,7 @@ public class IHDrive {
 
 
         // TODO: reverse motor directions if needed
+        left.setDirection(DcMotorSimple.Direction.REVERSE);
        /* leftFront.setDirection(DcMotorSimple.Direction.REVERSE);
         leftBack.setDirection(DcMotorSimple.Direction.REVERSE);
         middle.*/

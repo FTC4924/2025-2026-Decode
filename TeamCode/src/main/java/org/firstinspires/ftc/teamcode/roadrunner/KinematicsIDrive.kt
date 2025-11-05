@@ -64,8 +64,8 @@ data class KinematicsIDrive @JvmOverloads constructor(
 
     fun <Param> inverse(t: PoseVelocity2dDual<Param>) = WheelVelocities(
         t.linearVel.y,
-        t.linearVel.x-t.angVel,
-        t.linearVel.x+t.angVel
+        t.linearVel.x+t.angVel,
+        t.linearVel.x-t.angVel
     )
 
     inner class WheelVelConstraint(@JvmField val maxWheelVel: Double) : VelConstraint {

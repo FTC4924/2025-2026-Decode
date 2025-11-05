@@ -8,13 +8,28 @@ import com.acmerobotics.roadrunner.Rotation2d
 import com.acmerobotics.roadrunner.SequentialAction
 import com.acmerobotics.roadrunner.Vector2d
 import com.qualcomm.robotcore.eventloop.opmode.OpMode
+import com.qualcomm.robotcore.eventloop.opmode.TeleOp
 import com.qualcomm.robotcore.hardware.DcMotor
 import org.firstinspires.ftc.teamcode.roadrunner.PinpointDrive
+import com.qualcomm.hardware.limelightvision.LLResult;
+import com.qualcomm.hardware.limelightvision.LLResultTypes;
+import com.qualcomm.hardware.limelightvision.LLStatus;
+import com.qualcomm.hardware.limelightvision.Limelight3A;
+import org.firstinspires.ftc.teamcode.subsystems.Ramp
+import org.firstinspires.ftc.teamcode.subsystems.Ramp.RampState
+import org.firstinspires.ftc.teamcode.subsystems.Shooter
+import org.firstinspires.ftc.teamcode.subsystems.Shooter.ShooterState
+import org.firstinspires.ftc.teamcode.subsystems.Collection
+import org.firstinspires.ftc.teamcode.subsystems.Collection.CollectionState
 
-abstract class CompetitionTeleop : OpMode() {
+@TeleOp(name = "CompetitionTeleop")
+class CompetitionTeleop : OpMode() {
     private lateinit var drive: PinpointDrive
     private lateinit var g1: PandaGamepad
     private lateinit var g2: PandaGamepad
+    private lateinit var shooter: Shooter
+    private lateinit var collection: Collection
+    private lateinit var ramp: Ramp
     private var headingOffset: Double = 0.0
     private val dash: FtcDashboard = FtcDashboard.getInstance()
     private var runningActions: MutableList<Action> = ArrayList()
@@ -24,6 +39,9 @@ abstract class CompetitionTeleop : OpMode() {
         drive = PinpointDrive(hardwareMap, Pose2d(0.0, 0.0, 0.0))
         g1 = PandaGamepad(gamepad1)
         g2 = PandaGamepad(gamepad2)
+        shooter = Shooter(hardwareMap)
+        ramp = Ramp(hardwareMap)
+        collection = Collection(hardwareMap)
     }
 
     override fun start() {
@@ -87,28 +105,66 @@ abstract class CompetitionTeleop : OpMode() {
             g1.leftStickY.component.toDouble(),
             -g1.leftStickX.component.toDouble()
         )
-        if (g1.rightBumper.isInactive() and g1.leftBumper.isInactive()) { //don't set drive if bumpers
-            if (g1.y.isActive()) {  //When Boosting
-                drive.setDrivePowers(
-                    PoseVelocity2d(
-                        heading.inverse().times(input),
-                        ((gamepad1.left_trigger - gamepad1.right_trigger) * 1 / 2).toDouble()
-                    )
+        if (g1.y.isActive()) {  //When Boosting
+            drive.setDrivePowers(
+                PoseVelocity2d(
+                    heading.inverse().times(input),
+                    ((gamepad1.left_trigger - gamepad1.right_trigger) * 1 / 2).toDouble()
                 )
-            } else {
-                drive.setDrivePowers(
-                    PoseVelocity2d(
-                        heading.inverse().times(input * slowSpeed),    //Coach Ethan added slow 1/19
-                        ((gamepad1.left_trigger - gamepad1.right_trigger) * 1 / 4).toDouble()
-                    )
+            )
+        } else {
+            drive.setDrivePowers(
+                PoseVelocity2d(
+                    heading.inverse().times(input * slowSpeed),    //Coach Ethan added slow 1/19
+                    ((gamepad1.left_trigger - gamepad1.right_trigger) * 1 / 2 * slowSpeed).toDouble()
                 )
-            }
+            )
         }
-        //Climbing***************************
 
 
         if (g1.b.justPressed()) headingOffset = rawHeading
+
+        /* driver 2 */
+
+        if (g2.a.isActive()) {
+            runningActions.add(shooter.shooting())
+        }
+        else {
+            runningActions.add(shooter.idle())
+        }
+        if (g2.dpadDown.justPressed()) {
+            runningActions.add(ramp.partner())
+        }
+
+
+        if (g2.dpadRight.justPressed()) {
+            runningActions.add(ramp.collect())
+        }
+        if (g2.dpadUp.justPressed()) {
+            runningActions.add(ramp.shoot())
+        }
+
+        if (g2.leftStickY.isActive()) runningActions.add(ramp.manual(g2.leftStickY.component * deltaTime))
+
+        if (g2.y.justPressed()) {
+            if (collection.collectionState == CollectionState.Stopped) {
+                runningActions.add(collection.collecting())
+            } else if (collection.collectionState == CollectionState.Backward){
+                runningActions.add(collection.collecting())
+            } else {
+                runningActions.add(collection.stopped())
+            }
+        }
+        if (g2.x.justPressed()) {
+            if (collection.collectionState == CollectionState.Stopped) {
+                runningActions.add(collection.spitting())
+            } else if (collection.collectionState == CollectionState.Forward)
+                runningActions.add(collection.spitting())
+            else {
+                runningActions.add(collection.stopped())
+
+            }
+        }
     }
 
-    protected abstract val allianceColor: AllianceColor
 }
