@@ -91,6 +91,8 @@ class CompetitionTeleop : OpMode() {
         }
         runningActions = newActions
 
+        telemetry.addData("position", ramp.ramp.currentPosition)
+
         dash.sendTelemetryPacket(packet)
 
         //update drive Pose
@@ -126,10 +128,10 @@ class CompetitionTeleop : OpMode() {
 
         /* driver 2 */
 
-        if (g2.a.isActive()) {
+        if (g2.a.justPressed()) {
             runningActions.add(shooter.shooting())
         }
-        else {
+        else if (g2.a.justReleased()){
             runningActions.add(shooter.idle())
         }
         if (g2.dpadDown.justPressed()) {
@@ -142,6 +144,9 @@ class CompetitionTeleop : OpMode() {
         }
         if (g2.dpadUp.justPressed()) {
             runningActions.add(ramp.shoot())
+        }
+        if (g2.dpadLeft.justPressed()) {
+            ramp.resetRampPosition()
         }
 
         if (g2.leftStickY.isActive()) runningActions.add(ramp.manual(g2.leftStickY.component * deltaTime))

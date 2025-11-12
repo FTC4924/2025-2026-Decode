@@ -22,7 +22,7 @@ class Ramp(hardwareMap: HardwareMap) {
 
     var rampState = RampState.Collect
 
-    private val ramp = hardwareMap.get(DcMotor::class.java, "ramp")
+    val ramp = hardwareMap.get(DcMotor::class.java, "ramp")
 
     private val power = 0.5
 
@@ -84,7 +84,7 @@ class Ramp(hardwareMap: HardwareMap) {
      * Only use in the collect position; used to reset the positions of the arm; should be called
      * alongside a collect action
      */
-    fun resetArmPosition() {
+    fun resetRampPosition() {
         rampOffset = RampState.Collect.position - ramp.currentPosition
 
     }

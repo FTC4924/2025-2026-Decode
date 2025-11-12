@@ -30,7 +30,7 @@ class Collection(hardwareMap: HardwareMap) {
     var collectionPower = 0.0  //W hen program/class is initialized, assume start at 0
 
     init {
-        collection.direction = DcMotorSimple.Direction.FORWARD
+        collection.direction = DcMotorSimple.Direction.REVERSE
     }
 
 

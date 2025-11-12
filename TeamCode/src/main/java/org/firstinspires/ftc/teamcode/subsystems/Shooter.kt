@@ -30,7 +30,7 @@ class Shooter(hardwareMap: HardwareMap) {
     var armPower = 0.0  //W hen program/class is initialized, assume start at 0
 
     init {
-        shooter.direction = DcMotorSimple.Direction.FORWARD
+        shooter.direction = DcMotorSimple.Direction.REVERSE
     }
 
 
