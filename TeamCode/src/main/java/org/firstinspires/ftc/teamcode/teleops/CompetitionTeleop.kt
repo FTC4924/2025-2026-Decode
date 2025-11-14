@@ -134,19 +134,19 @@ class CompetitionTeleop : OpMode() {
         else if (g2.a.justReleased()){
             runningActions.add(shooter.idle())
         }
-        if (g2.dpadDown.justPressed()) {
-            runningActions.add(ramp.partner())
-        }
 
 
-        if (g2.dpadRight.justPressed()) {
+        if (g2.dpadUp.justPressed()) {
             runningActions.add(ramp.collect())
         }
-        if (g2.dpadUp.justPressed()) {
+        if (g2.dpadRight.justPressed()) {
             runningActions.add(ramp.shoot())
         }
         if (g2.dpadLeft.justPressed()) {
             ramp.resetRampPosition()
+        }
+        if (g2.dpadDown.justPressed()) {
+            runningActions.add(ramp.partner())
         }
 
         if (g2.leftStickY.isActive()) runningActions.add(ramp.manual(g2.leftStickY.component * deltaTime))

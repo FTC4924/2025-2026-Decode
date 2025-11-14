@@ -16,9 +16,9 @@ class Shooter(hardwareMap: HardwareMap) {
      * know the position of the scoringArm
      */
     enum class ShooterState(val power: Double) {
-        Forward(0.75),
+        Forward(1.0),
         Stopped(0.0),
-        Idle(0.14)
+        Idle(0.0)      //Need to test and update!!!
 
     }
 

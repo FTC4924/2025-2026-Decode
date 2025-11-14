@@ -14,9 +14,9 @@ class Ramp(hardwareMap: HardwareMap) {
      * know the position of the scoringArm
      */
     enum class RampState(val position: Int) {
-        Shoot(100), // Need to test and find correct values
-        Collect(50), // Need to test and find correct values
-        Partner (150), // Need to test and find correct values
+        Shoot(260), // Need to test and find correct values
+        Collect(360), //
+        Partner (0), //
         Manual(-1)
     }
 
@@ -24,14 +24,13 @@ class Ramp(hardwareMap: HardwareMap) {
 
     val ramp = hardwareMap.get(DcMotor::class.java, "ramp")
 
-    private val power = 0.5
+    private val power = 0.75
 
     var rampOffset = 0 //offset used to reset the arm positions mid-match
     var targetPosition = 0.0    //When program/class is initialized, assume start at 0
 
     init {
         ramp.mode = DcMotor.RunMode.STOP_AND_RESET_ENCODER
-        ramp.direction = DcMotorSimple.Direction.REVERSE
         ramp.targetPosition = 0
         ramp.mode = DcMotor.RunMode.RUN_TO_POSITION
         ramp.power = power
