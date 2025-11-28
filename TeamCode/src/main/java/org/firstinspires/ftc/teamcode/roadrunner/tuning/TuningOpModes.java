@@ -33,6 +33,7 @@ public final class TuningOpModes {
                 .build();
     }
 
+
     @OpModeRegistrar
     public static void register(OpModeManager manager) {
         if (DISABLED) return;
@@ -48,11 +49,11 @@ public final class TuningOpModes {
                 perpEncs.add(new PinpointEncoder(pd.pinpoint,true, pd.middle));
 
                 return new DriveView(
-                        DriveType.MECANUM,
-                        MecanumDrive.PARAMS.inPerTick,
-                        MecanumDrive.PARAMS.maxWheelVel,
-                        MecanumDrive.PARAMS.minProfileAccel,
-                        MecanumDrive.PARAMS.maxProfileAccel,
+                        DriveType.IH,
+                        IHDrive.PARAMS.inPerTick,
+                        IHDrive.PARAMS.maxWheelVel,
+                        IHDrive.PARAMS.minProfileAccel,
+                        IHDrive.PARAMS.maxProfileAccel,
                         hardwareMap.getAll(LynxModule.class),
                         Arrays.asList(
                                 pd.left

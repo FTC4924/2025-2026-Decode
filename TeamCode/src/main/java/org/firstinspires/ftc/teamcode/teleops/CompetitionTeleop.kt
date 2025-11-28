@@ -9,16 +9,9 @@ import com.acmerobotics.roadrunner.SequentialAction
 import com.acmerobotics.roadrunner.Vector2d
 import com.qualcomm.robotcore.eventloop.opmode.OpMode
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp
-import com.qualcomm.robotcore.hardware.DcMotor
 import org.firstinspires.ftc.teamcode.roadrunner.PinpointDrive
-import com.qualcomm.hardware.limelightvision.LLResult;
-import com.qualcomm.hardware.limelightvision.LLResultTypes;
-import com.qualcomm.hardware.limelightvision.LLStatus;
-import com.qualcomm.hardware.limelightvision.Limelight3A;
 import org.firstinspires.ftc.teamcode.subsystems.Ramp
-import org.firstinspires.ftc.teamcode.subsystems.Ramp.RampState
 import org.firstinspires.ftc.teamcode.subsystems.Shooter
-import org.firstinspires.ftc.teamcode.subsystems.Shooter.ShooterState
 import org.firstinspires.ftc.teamcode.subsystems.Collection
 import org.firstinspires.ftc.teamcode.subsystems.Collection.CollectionState
 
@@ -129,7 +122,7 @@ class CompetitionTeleop : OpMode() {
         /* driver 2 */
 
         if (g2.a.justPressed()) {
-            runningActions.add(shooter.shooting())
+            runningActions.add(shooter.shoot())
         }
         else if (g2.a.justReleased()){
             runningActions.add(shooter.idle())
@@ -139,11 +132,14 @@ class CompetitionTeleop : OpMode() {
         if (g2.dpadUp.justPressed()) {
             runningActions.add(ramp.collect())
         }
-        if (g2.dpadRight.justPressed()) {
+        if (g2.dpadRight.justPressed() && shooter.shooterState ==  Shooter.ShooterState.Forward) {
+            runningActions.add(collection.stop())
             runningActions.add(ramp.shoot())
         }
         if (g2.dpadLeft.justPressed()) {
-            ramp.resetRampPosition()
+            runningActions.add(shooter.stop())
+            runningActions.add(ramp.index())
+            //ramp.resetRampPosition()  //Commented out by coach Ethan 11/25 because I almost broke everything
         }
         if (g2.dpadDown.justPressed()) {
             runningActions.add(ramp.partner())
@@ -153,20 +149,20 @@ class CompetitionTeleop : OpMode() {
 
         if (g2.y.justPressed()) {
             if (collection.collectionState == CollectionState.Stopped) {
-                runningActions.add(collection.collecting())
+                runningActions.add(collection.collectIn())
             } else if (collection.collectionState == CollectionState.Backward){
-                runningActions.add(collection.collecting())
+                runningActions.add(collection.collectIn())
             } else {
-                runningActions.add(collection.stopped())
+                runningActions.add(collection.stop())
             }
         }
         if (g2.x.justPressed()) {
             if (collection.collectionState == CollectionState.Stopped) {
-                runningActions.add(collection.spitting())
+                runningActions.add(collection.spitOut())
             } else if (collection.collectionState == CollectionState.Forward)
-                runningActions.add(collection.spitting())
+                runningActions.add(collection.spitOut())
             else {
-                runningActions.add(collection.stopped())
+                runningActions.add(collection.stop())
 
             }
         }

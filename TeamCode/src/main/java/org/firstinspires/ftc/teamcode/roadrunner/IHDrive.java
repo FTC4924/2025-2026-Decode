@@ -222,8 +222,8 @@ public class IHDrive {
 
 
         // feedforward parameters (in tick units)
-        public double kS = 1.624191912189736;
-        public double kV = 0.18341322461809637;
+        public double kS = 1.1018407574665687;
+        public double kV = 0.27890749217893873;
         public double kA = 0.0001;
 
 

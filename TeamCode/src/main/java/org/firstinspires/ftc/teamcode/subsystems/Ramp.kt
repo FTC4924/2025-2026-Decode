@@ -14,8 +14,9 @@ class Ramp(hardwareMap: HardwareMap) {
      * know the position of the scoringArm
      */
     enum class RampState(val position: Int) {
-        Shoot(260), // Need to test and find correct values
-        Collect(360), //
+        Index(420), // New 11/25
+        Shoot(300), // was 260 pre 11/25
+        Collect(890), // was 360 pre 11/25
         Partner (0), //
         Manual(-1)
     }
@@ -90,6 +91,7 @@ class Ramp(hardwareMap: HardwareMap) {
 
     fun shoot(): Action = SetState(RampState.Shoot)
     fun collect(): Action = SetState(RampState.Collect)
+    fun index(): Action = SetState(RampState.Index)
     fun partner(): Action = SetState(RampState.Partner)
     fun manual(input: Double): Action = Manual(input)
 }

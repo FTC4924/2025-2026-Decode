@@ -3,10 +3,8 @@ package org.firstinspires.ftc.teamcode.subsystems
 import com.acmerobotics.dashboard.telemetry.TelemetryPacket
 import com.acmerobotics.roadrunner.Action
 import com.qualcomm.robotcore.hardware.CRServo
-import com.qualcomm.robotcore.hardware.DcMotor
 import com.qualcomm.robotcore.hardware.DcMotorSimple
 import com.qualcomm.robotcore.hardware.HardwareMap
-import com.qualcomm.robotcore.hardware.Servo
 
 
 class Collection(hardwareMap: HardwareMap) {
@@ -50,8 +48,8 @@ class Collection(hardwareMap: HardwareMap) {
     }
 
 
-    fun collecting(): Action = SetState(CollectionState.Forward)
-    fun spitting(): Action = SetState (CollectionState.Backward)
-    fun stopped(): Action = SetState(CollectionState.Stopped)
+    fun collectIn(): Action = SetState(CollectionState.Forward)
+    fun spitOut(): Action = SetState (CollectionState.Backward)
+    fun stop(): Action = SetState(CollectionState.Stopped)
 
 }

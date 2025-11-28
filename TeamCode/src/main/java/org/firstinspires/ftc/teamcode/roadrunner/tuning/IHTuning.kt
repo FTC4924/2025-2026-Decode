@@ -416,13 +416,14 @@ class LateralRampLogger(val dvf: DriveViewFactory) : LinearOpMode() {
         }
 
         while (opModeIsActive()) {
-            if(view.type == DriveType.MECANUM) {
+            /* if(view.type == DriveType.MECANUM) {
                 setMotorPower(view.leftMotors[0], -1, data.frontLeftPower)
                 setMotorPower(view.rightMotors[0], +1, data.frontRightPower)
                 setMotorPower(view.leftMotors[1], +1, data.backLeftPower)
                 setMotorPower(view.rightMotors[1], -1, data.backRightPower)
-            } else if (view.type == DriveType.IH) {
-                setMotorPower(view.middleMotor[0], -1, data.middlePower)
+            } else */
+            if (view.type == DriveType.IH) {
+                setMotorPower(view.middleMotor[0], 1, data.middlePower)
             }
 
             data.voltages.values.add(view.voltageSensor.voltage)

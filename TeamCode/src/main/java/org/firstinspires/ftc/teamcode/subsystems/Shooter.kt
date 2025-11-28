@@ -3,10 +3,8 @@ package org.firstinspires.ftc.teamcode.subsystems
 import com.acmerobotics.dashboard.telemetry.TelemetryPacket
 import com.acmerobotics.roadrunner.Action
 import com.qualcomm.robotcore.hardware.CRServo
-import com.qualcomm.robotcore.hardware.DcMotor
 import com.qualcomm.robotcore.hardware.DcMotorSimple
 import com.qualcomm.robotcore.hardware.HardwareMap
-import com.qualcomm.robotcore.hardware.Servo
 
 
 class Shooter(hardwareMap: HardwareMap) {
@@ -50,7 +48,7 @@ class Shooter(hardwareMap: HardwareMap) {
     }
 
 
-    fun shooting(): Action = SetState(ShooterState.Forward)
-    fun stopped(): Action = SetState(ShooterState.Stopped)
+    fun shoot(): Action = SetState(ShooterState.Forward)
+    fun stop(): Action = SetState(ShooterState.Stopped)
     fun idle(): Action = SetState (ShooterState.Idle)
 }
