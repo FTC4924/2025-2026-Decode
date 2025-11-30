@@ -20,12 +20,12 @@ class PandaGamepad(val gamepad: Gamepad) {
     val rightBumper = ButtonComponent()
     val rightStickButton = ButtonComponent()
     val leftStickButton = ButtonComponent()
-    val leftStickX = AnalogComponent()
-    val leftStickY = AnalogComponent()
-    val rightStickX = AnalogComponent()
-    val rightStickY = AnalogComponent()
-    val rightTrigger = AnalogComponent()
-    val leftTrigger = AnalogComponent()
+    val leftStickX = AnalogComponent(0.05)
+    val leftStickY = AnalogComponent(0.05)
+    val rightStickX = AnalogComponent(0.05)
+    val rightStickY = AnalogComponent(0.05)
+    val rightTrigger = AnalogComponent(0.05)
+    val leftTrigger = AnalogComponent(0.05)
 
     fun update() {
         a.update(gamepad.a)
@@ -73,9 +73,7 @@ class PandaGamepad(val gamepad: Gamepad) {
         fun isInactive() = state == Idle
     }
 
-    class AnalogComponent : GamepadComponent() {
-        @FloatRange(from = 0.0, to = 1.0)
-        val analogThreshold = 0.05
+    class AnalogComponent(@FloatRange(from = 0.0, to = 1.0) val analogThreshold: Double) : GamepadComponent() {
 
         var component: Double = 0.0
             private set
@@ -85,8 +83,6 @@ class PandaGamepad(val gamepad: Gamepad) {
             update(active)
             if (!isInactive()) this.component = component
         }
-
-
     }
 
     class ButtonComponent : GamepadComponent() {

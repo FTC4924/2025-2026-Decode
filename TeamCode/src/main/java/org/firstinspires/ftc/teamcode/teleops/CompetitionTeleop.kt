@@ -23,10 +23,16 @@ class CompetitionTeleop : OpMode() {
     private lateinit var shooter: Shooter
     private lateinit var collection: Collection
     private lateinit var ramp: Ramp
+    private val upperThresh: Double = 0.9
+    private val lowerThresh: Double = 0.05
     private var headingOffset: Double = 0.0
     private val dash: FtcDashboard = FtcDashboard.getInstance()
     private var runningActions: MutableList<Action> = ArrayList()
     private var lastTime: Double = 0.0
+
+
+    val rightTriggerMax = PandaGamepad.AnalogComponent(1.0) //Shouldn't this say G2 somewhere?
+    val leftTriggerMax = PandaGamepad.AnalogComponent(1.0)
 
     override fun init() {
         drive = PinpointDrive(hardwareMap, Pose2d(0.0, 0.0, 0.0))
@@ -35,6 +41,7 @@ class CompetitionTeleop : OpMode() {
         shooter = Shooter(hardwareMap)
         ramp = Ramp(hardwareMap)
         collection = Collection(hardwareMap)
+
     }
 
     override fun start() {
@@ -48,20 +55,6 @@ class CompetitionTeleop : OpMode() {
         return deltaTime
     }
 
-    fun nearestCompass(currentHeading: Double, direction: String): Double {
-        //Finds nearest 90 degree increment to current heading
-        var headOut: Double = 0.0
-
-        if ((currentHeading < 90) and (currentHeading <= 0)) headOut = 90.0
-        else if ((currentHeading < 180) and (currentHeading <= 90)) headOut = 180.0
-        else if ((currentHeading < -90) and (currentHeading <= -180)) headOut = -90.0
-        else if ((currentHeading < 0) and (currentHeading <= -90)) headOut = 0.0
-
-        if (direction == "right") return headOut
-        else if (direction == "left") return headOut - 90
-        else return 0.0
-    }
-
     override fun loop() {
         //update delta time
         val deltaTime = getDeltaTime()
@@ -70,6 +63,9 @@ class CompetitionTeleop : OpMode() {
         //update gamepad values
         g1.update()
         g2.update()
+
+        rightTriggerMax.update(gamepad2.right_trigger.toDouble())
+        leftTriggerMax.update(gamepad2.left_trigger.toDouble())
 
         //run and update actions
         val packet = PandaTelemetryPacket(telemetry)
@@ -94,7 +90,7 @@ class CompetitionTeleop : OpMode() {
         /* driver 1 */
         val rawHeading = drive.getPinpoint().heading
         val heading: Rotation2d = Rotation2d.fromDouble(rawHeading - headingOffset)
-        val slowSpeed = 0.7 //Normally go about 70% of our fastest speed
+        val slowSpeed = 0.8 //Normally go about 80% of our fastest speed
 
         val input = Vector2d(
             g1.leftStickY.component.toDouble(),
@@ -116,56 +112,57 @@ class CompetitionTeleop : OpMode() {
             )
         }
 
-
         if (g1.b.justPressed()) headingOffset = rawHeading
 
         /* driver 2 */
 
-        if (g2.a.justPressed()) {
-            runningActions.add(shooter.shoot())
-        }
-        else if (g2.a.justReleased()){
-            runningActions.add(shooter.idle())
-        }
+        if (g2.a.justPressed()) runningActions.add(shooter.shoot())
+        else if (g2.a.justReleased()) runningActions.add(shooter.idle())
 
+        if (g2.dpadUp.justPressed()) runningActions.add(ramp.collect())
 
-        if (g2.dpadUp.justPressed()) {
-            runningActions.add(ramp.collect())
-        }
-        if (g2.dpadRight.justPressed() && shooter.shooterState ==  Shooter.ShooterState.Forward) {
-            runningActions.add(collection.stop())
+        if (g2.dpadRight.justPressed() && shooter.shooterState == Shooter.ShooterState.Forward) {
+            runningActions.add(collection.collectIn())
             runningActions.add(ramp.shoot())
         }
+
         if (g2.dpadLeft.justPressed()) {
-            runningActions.add(shooter.stop())
+            runningActions.add(collection.collectIn())
             runningActions.add(ramp.index())
-            //ramp.resetRampPosition()  //Commented out by coach Ethan 11/25 because I almost broke everything
         }
-        if (g2.dpadDown.justPressed()) {
-            runningActions.add(ramp.partner())
+        else if (g2.dpadLeft.justReleased()) {
+            runningActions.add(ramp.shoot())
         }
+
+        if (g2.dpadDown.justPressed()) runningActions.add(ramp.partner())
 
         if (g2.leftStickY.isActive()) runningActions.add(ramp.manual(g2.leftStickY.component * deltaTime))
 
-        if (g2.y.justPressed()) {
-            if (collection.collectionState == CollectionState.Stopped) {
-                runningActions.add(collection.collectIn())
-            } else if (collection.collectionState == CollectionState.Backward){
-                runningActions.add(collection.collectIn())
-            } else {
-                runningActions.add(collection.stop())
-            }
-        }
         if (g2.x.justPressed()) {
-            if (collection.collectionState == CollectionState.Stopped) {
-                runningActions.add(collection.spitOut())
-            } else if (collection.collectionState == CollectionState.Forward)
-                runningActions.add(collection.spitOut())
-            else {
-                runningActions.add(collection.stop())
-
-            }
+            if (collection.collectionState == CollectionState.Stopped) runningActions.add(collection.collectIn())
+            else if (collection.collectionState == CollectionState.Backward) runningActions.add(collection.collectIn())
+            else runningActions.add(collection.stop())
         }
+        if (g2.y.justPressed()) {
+            if (collection.collectionState == CollectionState.Stopped) runningActions.add(collection.spitOut())
+            else if (collection.collectionState == CollectionState.Forward) runningActions.add(collection.spitOut())
+            else runningActions.add(collection.stop())
+        }
+
+        //  This doesn't work!!! As of 11/30/2025
+        if (g2.rightTrigger.justActive()) shooter.adjustPower(shooter.small)
+        else if (g2.rightTrigger.justInactive()) shooter.adjustPower(-shooter.small)
+
+        if (rightTriggerMax.justActive()) shooter.adjustPower(shooter.big)
+        else if (rightTriggerMax.justInactive()) shooter.adjustPower(-shooter.big)
+
+        if (g2.leftTrigger.justActive()) shooter.adjustPower(-0.25)
+        else if (g2.leftTrigger.justInactive()) shooter.adjustPower(0.25)
+
+        if (leftTriggerMax.justActive()) shooter.adjustPower(-0.5)
+        else if (leftTriggerMax.justInactive()) shooter.adjustPower(0.5)
+
+
     }
 
 }
