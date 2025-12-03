@@ -31,8 +31,8 @@ class CompetitionTeleop : OpMode() {
     private var lastTime: Double = 0.0
 
 
-    val rightTriggerMax = PandaGamepad.AnalogComponent(1.0) //Shouldn't this say G2 somewhere?
-    val leftTriggerMax = PandaGamepad.AnalogComponent(1.0)
+    val rightTriggerMax = PandaGamepad.AnalogComponent(0.95) //Shouldn't this say G2 somewhere?
+    val leftTriggerMax = PandaGamepad.AnalogComponent(0.95)
 
     override fun init() {
         drive = PinpointDrive(hardwareMap, Pose2d(0.0, 0.0, 0.0))
@@ -80,7 +80,7 @@ class CompetitionTeleop : OpMode() {
         }
         runningActions = newActions
 
-        telemetry.addData("position", ramp.ramp.currentPosition)
+        telemetry.addData("Ramp position", ramp.ramp.currentPosition)
 
         dash.sendTelemetryPacket(packet)
 
@@ -96,18 +96,18 @@ class CompetitionTeleop : OpMode() {
             g1.leftStickY.component.toDouble(),
             -g1.leftStickX.component.toDouble()
         )
-        if (g1.y.isActive()) {  //When Boosting
+        if (g1.a.isActive()) {  //When Boosting
             drive.setDrivePowers(
                 PoseVelocity2d(
-                    heading.inverse().times(input),
-                    ((gamepad1.left_trigger - gamepad1.right_trigger) * 1 / 2).toDouble()
+                    heading.inverse().times(input * slowSpeed),
+                    ((gamepad1.left_trigger - gamepad1.right_trigger) * 1 / 2 * slowSpeed).toDouble()
                 )
             )
         } else {
             drive.setDrivePowers(
                 PoseVelocity2d(
-                    heading.inverse().times(input * slowSpeed),    //Coach Ethan added slow 1/19
-                    ((gamepad1.left_trigger - gamepad1.right_trigger) * 1 / 2 * slowSpeed).toDouble()
+                    heading.inverse().times(input),    //Coach Ethan added slow 1/19
+                    ((gamepad1.left_trigger - gamepad1.right_trigger) * 1 / 2).toDouble()
                 )
             )
         }
@@ -150,17 +150,23 @@ class CompetitionTeleop : OpMode() {
         }
 
         //  This doesn't work!!! As of 11/30/2025
-        if (g2.rightTrigger.justActive()) shooter.adjustPower(shooter.small)
-        else if (g2.rightTrigger.justInactive()) shooter.adjustPower(-shooter.small)
 
-        if (rightTriggerMax.justActive()) shooter.adjustPower(shooter.big)
-        else if (rightTriggerMax.justInactive()) shooter.adjustPower(-shooter.big)
+        if (g2.rightTrigger.justActive()) runningActions.add(shooter.adjustPower(0.05))
+        else if (g2.rightTrigger.justInactive()) runningActions.add(shooter.adjustPower(-0.05))
 
-        if (g2.leftTrigger.justActive()) shooter.adjustPower(-0.25)
-        else if (g2.leftTrigger.justInactive()) shooter.adjustPower(0.25)
+        if (rightTriggerMax.justActive()) runningActions.add(shooter.adjustPower(0.05))
+        else if (rightTriggerMax.justInactive()) runningActions.add(shooter.adjustPower(-0.05))
 
-        if (leftTriggerMax.justActive()) shooter.adjustPower(-0.5)
-        else if (leftTriggerMax.justInactive()) shooter.adjustPower(0.5)
+        if (g2.leftTrigger.justActive()) runningActions.add(shooter.adjustPower(-0.1))
+        else if (g2.leftTrigger.justInactive()) runningActions.add(shooter.adjustPower(0.1))
+
+        if (leftTriggerMax.justActive()) runningActions.add(shooter.adjustPower(-0.1))
+        else if (leftTriggerMax.justInactive()) runningActions.add(shooter.adjustPower(0.1))
+
+        telemetry.addData("leftTriggerActive", g2.leftTrigger.isActive())
+        telemetry.addData("leftTriggerMaxActive", leftTriggerMax.isActive())
+        telemetry.addData("powerAdjustment", shooter.powerAdjustment)
+        telemetry.addData("shooterPower", shooter.shooter.power)
 
 
     }

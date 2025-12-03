@@ -11,6 +11,7 @@ class Shooter(hardwareMap: HardwareMap) {
 
     val small: Double = 0.05
     val big: Double = 0.1
+    var powerAdjustment = 0.0
 
     /**
      * @param position the position of the scoringArm in that state, -1 means we don't currently
@@ -25,19 +26,20 @@ class Shooter(hardwareMap: HardwareMap) {
 
     var shooterState = ShooterState.Stopped
 
-    private val shooter = hardwareMap.get(CRServo::class.java, "shooter")
+    val shooter = hardwareMap.get(CRServo::class.java, "shooter")
 
     init {
         shooter.direction = DcMotorSimple.Direction.REVERSE
+        shooter.power = ShooterState.Stopped.power
     }
 
 
-    inner class SetState(private val state: ShooterState, private val add: Double = 0.0) : Action {
+    inner class SetState(private val state: ShooterState) : Action {
 
         @Suppress("PARAMETER_NAME_CHANGED_ON_OVERRIDE")
         override fun run(packet: TelemetryPacket): Boolean {
-            shooter.power = state.power + add
             shooterState = state
+            shooter.power = shooterState.power + powerAdjustment
             return false
         }
     }
@@ -47,7 +49,8 @@ class Shooter(hardwareMap: HardwareMap) {
 
         @Suppress("PARAMETER_NAME_CHANGED_ON_OVERRIDE")
         override fun run(packet: TelemetryPacket): Boolean {
-            shooter.power += powerChange
+            powerAdjustment += powerChange
+            shooter.power = shooterState.power + powerAdjustment
             return false
         }
 

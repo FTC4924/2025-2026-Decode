@@ -43,7 +43,7 @@ class Collection(hardwareMap: HardwareMap) {
                 collectionState = state
                 initialized = true
             }
-            return true
+            return false
         }
     }
 
