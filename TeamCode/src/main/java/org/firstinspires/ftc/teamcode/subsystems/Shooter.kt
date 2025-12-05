@@ -9,8 +9,7 @@ import com.qualcomm.robotcore.hardware.HardwareMap
 
 class Shooter(hardwareMap: HardwareMap) {
 
-    val small: Double = 0.05
-    val big: Double = 0.1
+
     var powerAdjustment = 0.0
 
     /**
@@ -18,7 +17,7 @@ class Shooter(hardwareMap: HardwareMap) {
      * know the position of the scoringArm
      */
     enum class ShooterState(val power: Double) {
-        Forward(0.9),
+        Forward(0.80),
         Stopped(0.0),
         Idle(0.0)      //Need to test and update!!!
 
@@ -27,10 +26,12 @@ class Shooter(hardwareMap: HardwareMap) {
     var shooterState = ShooterState.Stopped
 
     val shooter = hardwareMap.get(CRServo::class.java, "shooter")
+    val flicker = hardwareMap.get(CRServo::class.java, "Flicker")
 
     init {
         shooter.direction = DcMotorSimple.Direction.REVERSE
         shooter.power = ShooterState.Stopped.power
+        flicker.power = ShooterState.Stopped.power
     }
 
 
@@ -40,6 +41,7 @@ class Shooter(hardwareMap: HardwareMap) {
         override fun run(packet: TelemetryPacket): Boolean {
             shooterState = state
             shooter.power = shooterState.power + powerAdjustment
+            flicker.power = shooterState.power + powerAdjustment
             return false
         }
     }
@@ -51,6 +53,7 @@ class Shooter(hardwareMap: HardwareMap) {
         override fun run(packet: TelemetryPacket): Boolean {
             powerAdjustment += powerChange
             shooter.power = shooterState.power + powerAdjustment
+            flicker.power = shooterState.power + powerAdjustment
             return false
         }
 
