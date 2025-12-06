@@ -2,16 +2,10 @@ package org.firstinspires.ftc.teamcode.subsystems
 
 import com.acmerobotics.dashboard.telemetry.TelemetryPacket
 import com.acmerobotics.roadrunner.Action
-import com.acmerobotics.roadrunner.Pose2d
-import com.acmerobotics.roadrunner.Vector2d
-import com.acmerobotics.roadrunner.ftc.runBlocking
-import com.qualcomm.robotcore.eventloop.opmode.Autonomous
-import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode
 import com.qualcomm.robotcore.hardware.DcMotor
 import com.qualcomm.robotcore.hardware.DcMotorEx
 import com.qualcomm.robotcore.hardware.HardwareMap
 import org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit
-import org.firstinspires.ftc.teamcode.roadrunner.PinpointDrive
 
 
 class Ramp(hardwareMap: HardwareMap) {
@@ -21,7 +15,7 @@ class Ramp(hardwareMap: HardwareMap) {
      * know the position of the scoringArm
      */
     enum class RampState(val position: Int) {
-        Index(335), // New 11/25
+        Index(335),
         Shoot(360), // was 260 pre 11/25, was 300 pre 11/30
         Collect(896), // was 360 pre 11/25
         Partner (0), //
@@ -95,7 +89,7 @@ class Ramp(hardwareMap: HardwareMap) {
      */
     inner class Zero() : Action {
         // how far the target position needs to be in the opposite direction to stop stalling
-        val StallOffset = 100
+        val StallOffset = 70
 
         private var initialized = false
 
@@ -107,10 +101,11 @@ class Ramp(hardwareMap: HardwareMap) {
             }
             val current = ramp.getCurrent(CurrentUnit.AMPS)
             packet.put("Current", current)
-            if (current > 3.0) {
+            if (current > 2.8) {
                 ramp.mode = DcMotor.RunMode.STOP_AND_RESET_ENCODER
                 ramp.targetPosition = StallOffset
                 ramp.mode = DcMotor.RunMode.RUN_TO_POSITION
+                ramp.mode = DcMotor.RunMode.STOP_AND_RESET_ENCODER
                 ramp.power = power
                 return false
             }
@@ -121,7 +116,8 @@ class Ramp(hardwareMap: HardwareMap) {
     fun shoot(): Action = SetState(RampState.Shoot)
     fun collect(): Action = SetState(RampState.Collect)
     fun index(): Action = SetState(RampState.Index)
-    fun partner(): Action = Zero()
+    fun homeRamp(): Action = Zero()
+    fun toZero(): Action = SetState(RampState.Partner)
     fun manual(input: Double): Action = Manual(input)
 
 }

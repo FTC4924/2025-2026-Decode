@@ -5,7 +5,6 @@ import com.acmerobotics.roadrunner.Action
 import com.acmerobotics.roadrunner.Pose2d
 import com.acmerobotics.roadrunner.PoseVelocity2d
 import com.acmerobotics.roadrunner.Rotation2d
-import com.acmerobotics.roadrunner.SequentialAction
 import com.acmerobotics.roadrunner.Vector2d
 import com.qualcomm.robotcore.eventloop.opmode.OpMode
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp
@@ -134,7 +133,8 @@ class CompetitionTeleop : OpMode() {
             runningActions.add(ramp.shoot())
         }
 
-        if (g2.dpadDown.justPressed()) runningActions.add(ramp.partner())
+        if (g2.dpadDown.justPressed()) runningActions.add(ramp.toZero())
+        if (g2.leftBumper.justPressed()) runningActions.add(ramp.homeRamp())
 
         if (g2.leftStickY.isActive()) runningActions.add(ramp.manual(g2.leftStickY.component * deltaTime))
 
@@ -149,7 +149,6 @@ class CompetitionTeleop : OpMode() {
             else runningActions.add(collection.stop())
         }
 
-        //  This doesn't work!!! As of 11/30/2025
 
         if (g2.rightTrigger.justActive()) runningActions.add(shooter.adjustPower(0.05))
         else if (g2.rightTrigger.justInactive()) runningActions.add(shooter.adjustPower(-0.05))
