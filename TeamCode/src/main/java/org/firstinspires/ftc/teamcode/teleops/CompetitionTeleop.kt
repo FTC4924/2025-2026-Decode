@@ -8,11 +8,14 @@ import com.acmerobotics.roadrunner.Rotation2d
 import com.acmerobotics.roadrunner.Vector2d
 import com.qualcomm.robotcore.eventloop.opmode.OpMode
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp
+import org.firstinspires.ftc.teamcode.roadrunner.Drawing
 import org.firstinspires.ftc.teamcode.roadrunner.PinpointDrive
-import org.firstinspires.ftc.teamcode.subsystems.Ramp
-import org.firstinspires.ftc.teamcode.subsystems.Shooter
 import org.firstinspires.ftc.teamcode.subsystems.Collection
 import org.firstinspires.ftc.teamcode.subsystems.Collection.CollectionState
+import org.firstinspires.ftc.teamcode.subsystems.Ramp
+import org.firstinspires.ftc.teamcode.subsystems.Shooter
+import kotlin.math.PI
+import kotlin.math.atan2
 
 @TeleOp(name = "CompetitionTeleop")
 class CompetitionTeleop : OpMode() {
@@ -28,6 +31,7 @@ class CompetitionTeleop : OpMode() {
     private val dash: FtcDashboard = FtcDashboard.getInstance()
     private var runningActions: MutableList<Action> = ArrayList()
     private var lastTime: Double = 0.0
+    private val GoalPosition = Vector2d(-72.0, 72.0)
 
 
     val rightTriggerMax = PandaGamepad.AnalogComponent(0.95) //Shouldn't this say G2 somewhere?
@@ -55,9 +59,12 @@ class CompetitionTeleop : OpMode() {
     }
 
     override fun loop() {
+
+
+        //telemetry.addData("Battery Voltage?", hardwareMap.voltageSensor.iterator().next())
         //update delta time
         val deltaTime = getDeltaTime()
-        telemetry.addData("Delta Time", deltaTime)
+        //telemetry.addData("Delta Time", deltaTime)
 
         //update gamepad values
         g1.update()
@@ -72,14 +79,24 @@ class CompetitionTeleop : OpMode() {
         val newActions: MutableList<Action> = ArrayList()
         for (action in runningActions) {
             action.preview(packet.fieldOverlay())
-            telemetry.addLine(action.toString())
+            //telemetry.addLine(action.toString())
             if (action.run(packet)) {
                 newActions.add(action)
             }
         }
         runningActions = newActions
 
-        telemetry.addData("Ramp position", ramp.ramp.currentPosition)
+        telemetry.addData("x", drive.pose.position.x)
+        telemetry.addData("y", drive.pose.position.y)
+        telemetry.addData("heading (deg)", Math.toDegrees(drive.pose.heading.toDouble()))
+
+        packet.field().setRotation(Math.PI / 2)
+        packet.fieldOverlay().setRotation(-Math.PI / 2)
+        packet.fieldOverlay().setStroke("#3F51B5")
+        Drawing.drawRobot(packet.fieldOverlay(), drive.pose)
+        FtcDashboard.getInstance().sendTelemetryPacket(packet)
+
+        //telemetry.addData("Ramp position", ramp.ramp.currentPosition)
 
         dash.sendTelemetryPacket(packet)
 
@@ -95,23 +112,45 @@ class CompetitionTeleop : OpMode() {
             g1.leftStickY.component.toDouble(),
             -g1.leftStickX.component.toDouble()
         )
-        if (g1.a.isActive()) {  //When Boosting
+
+        if(g1.x.isHeld()) {
+            val robotToGoalPosition = Vector2d(
+                GoalPosition.x - drive.pose.position.x,
+                GoalPosition.y - drive.pose.position.y
+            )
+            val robotToGoalAngle = atan2(robotToGoalPosition.y,robotToGoalPosition.x) + PI/2
+            val error = Rotation2d.exp(robotToGoalAngle) - drive.pose.heading
+            val errorScaled = error.toDouble() * 3/PI
             drive.setDrivePowers(
                 PoseVelocity2d(
                     heading.inverse().times(input * slowSpeed),
-                    ((gamepad1.left_trigger - gamepad1.right_trigger) * 1 / 2 * slowSpeed).toDouble()
+                    errorScaled
                 )
             )
+            telemetry.addData("error", errorScaled)
+            telemetry.addData("targetAngle (deg)", Math.toDegrees(robotToGoalAngle))
+
         } else {
-            drive.setDrivePowers(
-                PoseVelocity2d(
-                    heading.inverse().times(input),    //Coach Ethan added slow 1/19
-                    ((gamepad1.left_trigger - gamepad1.right_trigger) * 1 / 2).toDouble()
+            if (g1.a.isActive()) {  //When Boosting
+                drive.setDrivePowers(
+                    PoseVelocity2d(
+                        heading.inverse().times(input * slowSpeed),
+                        ((gamepad1.left_trigger - gamepad1.right_trigger) * 1 / 2 * slowSpeed).toDouble()
+                    )
                 )
-            )
+            } else {
+                drive.setDrivePowers(
+                    PoseVelocity2d(
+                        heading.inverse().times(input),    //Coach Ethan added slow 1/19
+                        ((gamepad1.left_trigger - gamepad1.right_trigger) * 1 / 2).toDouble()
+                    )
+                )
+            }
         }
 
         if (g1.b.justPressed()) headingOffset = rawHeading
+
+
 
         /* driver 2 */
 
@@ -162,10 +201,10 @@ class CompetitionTeleop : OpMode() {
         if (leftTriggerMax.justActive()) runningActions.add(shooter.adjustPower(-0.1))
         else if (leftTriggerMax.justInactive()) runningActions.add(shooter.adjustPower(0.1))
 
-        telemetry.addData("leftTriggerActive", g2.leftTrigger.isActive())
-        telemetry.addData("leftTriggerMaxActive", leftTriggerMax.isActive())
-        telemetry.addData("powerAdjustment", shooter.powerAdjustment)
-        telemetry.addData("shooterPower", shooter.shooter.power)
+        //telemetry.addData("leftTriggerActive", g2.leftTrigger.isActive())
+        //telemetry.addData("leftTriggerMaxActive", leftTriggerMax.isActive())
+        //telemetry.addData("powerAdjustment", shooter.powerAdjustment)
+        //telemetry.addData("shooterPower", shooter.shooter.power)
 
 
     }

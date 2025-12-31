@@ -111,8 +111,8 @@ public class PinpointDrive extends IHDrive {
          */
         //These are tuned for 3110-0002-0001 Product Insight #1
         // RR localizer note: These units are inches, presets are converted from mm (which is why they are inexact)
-        public double xOffset = 7.75;
-        public double yOffset = -2.31;
+        public double xOffset = 7.625;
+        public double yOffset = -2.375;
 
 
         /*

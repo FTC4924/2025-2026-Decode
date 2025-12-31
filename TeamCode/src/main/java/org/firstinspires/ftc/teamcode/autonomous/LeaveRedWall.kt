@@ -11,12 +11,12 @@ import org.firstinspires.ftc.teamcode.roadrunner.PinpointDrive
 @Autonomous
 class LeaveRedWall : LinearOpMode() {
     override fun runOpMode() {
-        val beginPose = Pose2d(61.0, 15.0, Math.PI / 2) // was x = 30.5, y = 66
+        val beginPose = Pose2d(61.0, -15.0, -Math.PI / 2) // was x = 30.5, y = 66
         val drive = PinpointDrive(hardwareMap, beginPose)
         waitForStart()
         runBlocking(
             drive.actionBuilder(beginPose)
-                .strafeTo(Vector2d(57.0, 39.0))
+                .strafeTo(Vector2d(57.0, -39.0))
                 .build()
         )
     }
