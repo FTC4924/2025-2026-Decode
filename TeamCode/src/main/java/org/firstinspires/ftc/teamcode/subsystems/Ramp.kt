@@ -15,9 +15,9 @@ class Ramp(hardwareMap: HardwareMap) {
      * know the position of the scoringArm
      */
     enum class RampState(val position: Int) {
-        Index(335),
-        Shoot(360), // was 260 pre 11/25, was 300 pre 11/30
-        Collect(896), // was 360 pre 11/25
+        Index(450),
+        Shoot(470), // was 360 pre 1/14
+        Collect(1060), // was 896 pre 1/14
         Partner (0), //
         Manual(-1)
     }
@@ -79,7 +79,6 @@ class Ramp(hardwareMap: HardwareMap) {
             targetPosition += input * maxSpeed
             ramp.targetPosition = targetPosition.toInt() - rampOffset
             packet.put("Target Position", ramp.targetPosition)
-            packet.put("Current Position", ramp.currentPosition)
             return false
         }
     }
@@ -120,5 +119,8 @@ class Ramp(hardwareMap: HardwareMap) {
     fun toZero(): Action = SetState(RampState.Partner)
     fun manual(input: Double): Action = Manual(input)
 
+    fun getPosition(): Int {
+        return ramp.currentPosition
+    }
 }
 

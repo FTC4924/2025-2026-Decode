@@ -17,50 +17,68 @@ class Shooter(hardwareMap: HardwareMap) {
      * know the position of the scoringArm
      */
     enum class ShooterState(val power: Double) {
-        Forward(0.80),
+        Shooting(0.80), //was 80 1/25
         Stopped(0.0),
         Idle(0.0)      //Need to test and update!!!
-
     }
 
     var shooterState = ShooterState.Stopped
 
+    enum class BeltState(val power: Double) {
+        Feeding(0.20), //was 80 1/25
+        Stopped(0.0),
+    }
+
+    var beltState = BeltState.Stopped
+
     val shooter = hardwareMap.get(CRServo::class.java, "shooter")
-    val flicker = hardwareMap.get(CRServo::class.java, "Flicker")
+    val belt = hardwareMap.get(CRServo::class.java, "belt")
 
     init {
         shooter.direction = DcMotorSimple.Direction.REVERSE
         shooter.power = ShooterState.Stopped.power
-        flicker.power = ShooterState.Stopped.power
+        belt.power = BeltState.Stopped.power
     }
 
 
-    inner class SetState(private val state: ShooterState) : Action {
+    inner class SetShooterState(private val state: ShooterState) : Action {
 
         @Suppress("PARAMETER_NAME_CHANGED_ON_OVERRIDE")
         override fun run(packet: TelemetryPacket): Boolean {
             shooterState = state
             shooter.power = shooterState.power + powerAdjustment
-            flicker.power = shooterState.power + powerAdjustment
             return false
         }
     }
 
 
-    inner class AdjustPower(private val powerChange: Double)  : Action {
+    inner class AdjustShooterPower(private val powerChange: Double)  : Action {
 
         @Suppress("PARAMETER_NAME_CHANGED_ON_OVERRIDE")
         override fun run(packet: TelemetryPacket): Boolean {
             powerAdjustment += powerChange
             shooter.power = shooterState.power + powerAdjustment
-            flicker.power = shooterState.power + powerAdjustment
+            belt.power = shooterState.power + powerAdjustment
             return false
         }
 
     }
 
-    fun shoot(): Action = SetState(ShooterState.Forward)
-    fun stop(): Action = SetState(ShooterState.Stopped)
-    fun idle(): Action = SetState (ShooterState.Idle)
-    fun adjustPower(powerChange: Double): Action = AdjustPower(powerChange)
+    inner class SetBeltState(private val state: BeltState) : Action {
+
+        @Suppress("PARAMETER_NAME_CHANGED_ON_OVERRIDE")
+        override fun run(packet: TelemetryPacket): Boolean {
+            beltState = state
+            belt.power = beltState.power
+            return false
+        }
+    }
+
+    fun shoot(): Action = SetShooterState(ShooterState.Shooting)
+    fun stop(): Action = SetShooterState(ShooterState.Stopped)
+    fun idle(): Action = SetShooterState (ShooterState.Idle)
+    fun adjustPower(powerChange: Double): Action = AdjustShooterPower(powerChange)
+
+    fun feed(): Action = SetBeltState(BeltState.Feeding)
+    fun stopFeeding(): Action = SetBeltState(BeltState.Stopped)
 }

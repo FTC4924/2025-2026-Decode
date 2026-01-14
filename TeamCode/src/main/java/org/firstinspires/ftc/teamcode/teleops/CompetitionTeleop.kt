@@ -8,6 +8,7 @@ import com.acmerobotics.roadrunner.Rotation2d
 import com.acmerobotics.roadrunner.Vector2d
 import com.qualcomm.robotcore.eventloop.opmode.OpMode
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp
+import org.firstinspires.ftc.teamcode.LocationShare
 import org.firstinspires.ftc.teamcode.roadrunner.Drawing
 import org.firstinspires.ftc.teamcode.roadrunner.PinpointDrive
 import org.firstinspires.ftc.teamcode.subsystems.Collection
@@ -16,25 +17,30 @@ import org.firstinspires.ftc.teamcode.subsystems.Ramp
 import org.firstinspires.ftc.teamcode.subsystems.Shooter
 import kotlin.math.PI
 import kotlin.math.atan2
+import kotlin.math.pow
+import kotlin.math.sqrt
 
 @TeleOp(name = "CompetitionTeleop")
 class CompetitionTeleop : OpMode() {
     private lateinit var drive: PinpointDrive
     private lateinit var g1: PandaGamepad
     private lateinit var g2: PandaGamepad
+
     private lateinit var shooter: Shooter
     private lateinit var collection: Collection
     private lateinit var ramp: Ramp
-    private val upperThresh: Double = 0.9
-    private val lowerThresh: Double = 0.05
+
     private var headingOffset: Double = 0.0
     private val dash: FtcDashboard = FtcDashboard.getInstance()
     private var runningActions: MutableList<Action> = ArrayList()
     private var lastTime: Double = 0.0
     private val GoalPosition = Vector2d(-72.0, 72.0)
 
+    private val shootUpInc: Double = 0.1
+    private val shootDownInc: Double = 0.1
 
-    val rightTriggerMax = PandaGamepad.AnalogComponent(0.95) //Shouldn't this say G2 somewhere?
+
+    val rightTriggerMax = PandaGamepad.AnalogComponent(0.95)
     val leftTriggerMax = PandaGamepad.AnalogComponent(0.95)
 
     override fun init() {
@@ -44,7 +50,7 @@ class CompetitionTeleop : OpMode() {
         shooter = Shooter(hardwareMap)
         ramp = Ramp(hardwareMap)
         collection = Collection(hardwareMap)
-
+        drive.pose = LocationShare.robotLocation
     }
 
     override fun start() {
@@ -59,12 +65,9 @@ class CompetitionTeleop : OpMode() {
     }
 
     override fun loop() {
-
-
-        //telemetry.addData("Battery Voltage?", hardwareMap.voltageSensor.iterator().next())
         //update delta time
         val deltaTime = getDeltaTime()
-        //telemetry.addData("Delta Time", deltaTime)
+        //telemetry.addData("seconds/loop", deltaTime)
 
         //update gamepad values
         g1.update()
@@ -90,6 +93,7 @@ class CompetitionTeleop : OpMode() {
         telemetry.addData("y", drive.pose.position.y)
         telemetry.addData("heading (deg)", Math.toDegrees(drive.pose.heading.toDouble()))
 
+        telemetry.addData("ramp position", ramp.getPosition())
         packet.field().setRotation(Math.PI / 2)
         packet.fieldOverlay().setRotation(-Math.PI / 2)
         packet.fieldOverlay().setStroke("#3F51B5")
@@ -114,6 +118,14 @@ class CompetitionTeleop : OpMode() {
         )
 
         if(g1.x.isHeld()) {
+            val shooterRelativePose = Pose2d(
+                Vector2d(7.0,0.0), 0.0
+            )
+            val robotToShooterRadius = sqrt(
+                shooterRelativePose.position.x.pow(2.0) + shooterRelativePose.position.y.pow(2.0)
+            )
+            val robotToShooterAngleGlobal = shooterRelativePose.heading + drive.pose.heading.toDouble()
+            
             val robotToGoalPosition = Vector2d(
                 GoalPosition.x - drive.pose.position.x,
                 GoalPosition.y - drive.pose.position.y
@@ -126,6 +138,7 @@ class CompetitionTeleop : OpMode() {
                     heading.inverse().times(input * slowSpeed),
                     errorScaled
                 )
+
             )
             telemetry.addData("error", errorScaled)
             telemetry.addData("targetAngle (deg)", Math.toDegrees(robotToGoalAngle))
@@ -157,18 +170,20 @@ class CompetitionTeleop : OpMode() {
         if (g2.a.justPressed()) runningActions.add(shooter.shoot())
         else if (g2.a.justReleased()) runningActions.add(shooter.idle())
 
+        if (g2.rightBumper.justPressed()) runningActions.add(shooter.feed())
+        else if (g2.rightBumper.justReleased()) runningActions.add(shooter.stopFeeding())
+
         if (g2.dpadUp.justPressed()) runningActions.add(ramp.collect())
 
-        if (g2.dpadRight.justPressed() && shooter.shooterState == Shooter.ShooterState.Forward) {
+        if (g2.dpadRight.justPressed()) {
             runningActions.add(collection.collectIn())
             runningActions.add(ramp.shoot())
         }
 
         if (g2.dpadLeft.justPressed()) {
-            runningActions.add(collection.collectIn())
             runningActions.add(ramp.index())
         }
-        else if (g2.dpadLeft.justReleased()) {
+        if (g2.dpadLeft.justReleased()) {
             runningActions.add(ramp.shoot())
         }
 
@@ -176,6 +191,7 @@ class CompetitionTeleop : OpMode() {
         if (g2.leftBumper.justPressed()) runningActions.add(ramp.homeRamp())
 
         if (g2.leftStickY.isActive()) runningActions.add(ramp.manual(g2.leftStickY.component * deltaTime))
+        //TODO: Add belt manual to right stick if (g2.rightStickY.isActive()) runningActions.add(shooter.)
 
         if (g2.x.justPressed()) {
             if (collection.collectionState == CollectionState.Stopped) runningActions.add(collection.collectIn())
@@ -189,24 +205,17 @@ class CompetitionTeleop : OpMode() {
         }
 
 
-        if (g2.rightTrigger.justActive()) runningActions.add(shooter.adjustPower(0.05))
-        else if (g2.rightTrigger.justInactive()) runningActions.add(shooter.adjustPower(-0.05))
+        if (g2.rightTrigger.justActive()) runningActions.add(shooter.adjustPower(shootUpInc))
+        else if (g2.rightTrigger.justInactive()) runningActions.add(shooter.adjustPower(-shootUpInc))
 
-        if (rightTriggerMax.justActive()) runningActions.add(shooter.adjustPower(0.05))
-        else if (rightTriggerMax.justInactive()) runningActions.add(shooter.adjustPower(-0.05))
+        if (rightTriggerMax.justActive()) runningActions.add(shooter.adjustPower(shootUpInc))
+        else if (rightTriggerMax.justInactive()) runningActions.add(shooter.adjustPower(-shootUpInc))
 
-        if (g2.leftTrigger.justActive()) runningActions.add(shooter.adjustPower(-0.1))
-        else if (g2.leftTrigger.justInactive()) runningActions.add(shooter.adjustPower(0.1))
+        if (g2.leftTrigger.justActive()) runningActions.add(shooter.adjustPower(-shootDownInc))
+        else if (g2.leftTrigger.justInactive()) runningActions.add(shooter.adjustPower(shootDownInc))
 
-        if (leftTriggerMax.justActive()) runningActions.add(shooter.adjustPower(-0.1))
-        else if (leftTriggerMax.justInactive()) runningActions.add(shooter.adjustPower(0.1))
-
-        //telemetry.addData("leftTriggerActive", g2.leftTrigger.isActive())
-        //telemetry.addData("leftTriggerMaxActive", leftTriggerMax.isActive())
-        //telemetry.addData("powerAdjustment", shooter.powerAdjustment)
-        //telemetry.addData("shooterPower", shooter.shooter.power)
-
-
+        if (leftTriggerMax.justActive()) runningActions.add(shooter.adjustPower(-shootDownInc))
+        else if (leftTriggerMax.justInactive()) runningActions.add(shooter.adjustPower(shootDownInc))
     }
 
 }

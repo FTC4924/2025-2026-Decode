@@ -14,8 +14,8 @@ class Collection(hardwareMap: HardwareMap) {
      * know the position of the scoringArm
      */
     enum class CollectionState(val power: Double) {
-        Forward(1.0),
-        Backward(-0.75),
+        Forward(-1.0),
+        Backward(0.75),
         Stopped(0.0)
 
     }
