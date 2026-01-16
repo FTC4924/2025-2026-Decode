@@ -17,7 +17,9 @@ import org.firstinspires.ftc.teamcode.subsystems.Ramp
 import org.firstinspires.ftc.teamcode.subsystems.Shooter
 import kotlin.math.PI
 import kotlin.math.atan2
+import kotlin.math.cos
 import kotlin.math.pow
+import kotlin.math.sin
 import kotlin.math.sqrt
 
 @TeleOp(name = "CompetitionTeleop")
@@ -118,30 +120,60 @@ class CompetitionTeleop : OpMode() {
         )
 
         if(g1.x.isHeld()) {
-            val shooterRelativePose = Pose2d(
-                Vector2d(7.0,0.0), 0.0
+            // The position and angle of the shooter relative to the robot
+            val shooterRelativeToRobotPose = Pose2d(
+                Vector2d(7.0,0.0), -PI/2
             )
-            val robotToShooterRadius = sqrt(
-                shooterRelativePose.position.x.pow(2.0) + shooterRelativePose.position.y.pow(2.0)
-            )
-            val robotToShooterAngleGlobal = shooterRelativePose.heading + drive.pose.heading.toDouble()
-            
-            val robotToGoalPosition = Vector2d(
-                GoalPosition.x - drive.pose.position.x,
-                GoalPosition.y - drive.pose.position.y
-            )
-            val robotToGoalAngle = atan2(robotToGoalPosition.y,robotToGoalPosition.x) + PI/2
-            val error = Rotation2d.exp(robotToGoalAngle) - drive.pose.heading
-            val errorScaled = error.toDouble() * 3/PI
-            drive.setDrivePowers(
-                PoseVelocity2d(
-                    heading.inverse().times(input * slowSpeed),
-                    errorScaled
-                )
 
+            // The angle from the center of the robot to the shooter relative to the robot
+            val robotToShooterAngleRelative = 0.0
+
+            // The distance between the center of the robot and the shooter
+            val robotToShooterRadius = sqrt(
+                shooterRelativeToRobotPose.position.x.pow(2.0) + shooterRelativeToRobotPose.position.y.pow(2.0)
             )
+
+            // The angle from the center of the robot to the shooter relative to the field
+            val robotToShooterAngleGlobal = robotToShooterAngleRelative + drive.pose.heading.toDouble()
+
+            // The position and angle of the shooter relative to the field
+            val shooterPose = Pose2d(
+                Vector2d(
+                    drive.pose.position.x + robotToShooterRadius * cos(robotToShooterAngleGlobal),
+                    drive.pose.position.y + robotToShooterRadius * sin(robotToShooterAngleGlobal)
+                ),
+                shooterRelativeToRobotPose.heading * drive.pose.heading
+            )
+
+            // The position of the goal relative to the shooter
+            val shooterRelativeToGoalPosition = Vector2d(
+                GoalPosition.x - shooterPose.position.x,
+                GoalPosition.y - shooterPose.position.y
+            )
+
+            // The angle from the shooter to the goal relative to the field
+            val shooterToGoalAngle = atan2(shooterRelativeToGoalPosition.y, shooterRelativeToGoalPosition.x)
+
+            //val robotToGoalPosition = Vector2d(
+            //    GoalPosition.x - drive.pose.position.x,
+            //    GoalPosition.y - drive.pose.position.y
+            //)
+            //val robotToGoalAngle = atan2(robotToGoalPosition.y,robotToGoalPosition.x) + PI/2
+
+            // proportional constant for turning, increase to turn more sharply, decrease to turn slower
+            val kP = 1.0
+
+            val error = Rotation2d.exp(shooterToGoalAngle) - shooterPose.heading
+            val errorScaled = error.toDouble() * kP
+            //drive.setDrivePowers(
+            //    PoseVelocity2d(
+            //        heading.inverse().times(input * slowSpeed),
+            //        errorScaled
+            //    )
+//
+            //)
             telemetry.addData("error", errorScaled)
-            telemetry.addData("targetAngle (deg)", Math.toDegrees(robotToGoalAngle))
+            telemetry.addData("targetAngle (deg)", Math.toDegrees(shooterToGoalAngle))
 
         } else {
             if (g1.a.isActive()) {  //When Boosting
@@ -176,7 +208,6 @@ class CompetitionTeleop : OpMode() {
         if (g2.dpadUp.justPressed()) runningActions.add(ramp.collect())
 
         if (g2.dpadRight.justPressed()) {
-            runningActions.add(collection.collectIn())
             runningActions.add(ramp.shoot())
         }
 
@@ -191,7 +222,8 @@ class CompetitionTeleop : OpMode() {
         if (g2.leftBumper.justPressed()) runningActions.add(ramp.homeRamp())
 
         if (g2.leftStickY.isActive()) runningActions.add(ramp.manual(g2.leftStickY.component * deltaTime))
-        //TODO: Add belt manual to right stick if (g2.rightStickY.isActive()) runningActions.add(shooter.)
+
+        if (g2.rightStickX.isActive()) shooter.belt.power = g2.rightStickX.component
 
         if (g2.x.justPressed()) {
             if (collection.collectionState == CollectionState.Stopped) runningActions.add(collection.collectIn())
