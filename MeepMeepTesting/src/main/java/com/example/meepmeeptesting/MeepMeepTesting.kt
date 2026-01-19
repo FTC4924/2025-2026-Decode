@@ -28,7 +28,7 @@ object MeepMeepTesting {
             )
         )
 
-        meepMeep.setBackground(MeepMeep.Background.FIELD_INTO_THE_DEEP_JUICE_LIGHT)
+        meepMeep.setBackground(MeepMeep.Background.FIELD_DECODE_JUICE_LIGHT)
             .setDarkMode(true)
             .setBackgroundAlpha(0.95f)
             .addEntity(myBot)
