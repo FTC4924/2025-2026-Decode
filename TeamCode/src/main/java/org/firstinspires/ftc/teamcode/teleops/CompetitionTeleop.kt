@@ -10,12 +10,13 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp
 import org.firstinspires.ftc.teamcode.LocationShare
 import org.firstinspires.ftc.teamcode.roadrunner.Drawing
-import org.firstinspires.ftc.teamcode.roadrunner.PinpointDrive
+import org.firstinspires.ftc.teamcode.roadrunner.IHDrive
 import org.firstinspires.ftc.teamcode.subsystems.Collection
 import org.firstinspires.ftc.teamcode.subsystems.Collection.CollectionState
 import org.firstinspires.ftc.teamcode.subsystems.Ramp
 import org.firstinspires.ftc.teamcode.subsystems.Shooter
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.pow
@@ -24,7 +25,7 @@ import kotlin.math.sqrt
 
 @TeleOp(name = "CompetitionTeleop")
 class CompetitionTeleop : OpMode() {
-    private lateinit var drive: PinpointDrive
+    private lateinit var drive: IHDrive
     private lateinit var g1: PandaGamepad
     private lateinit var g2: PandaGamepad
 
@@ -46,17 +47,18 @@ class CompetitionTeleop : OpMode() {
     val leftTriggerMax = PandaGamepad.AnalogComponent(0.95)
 
     override fun init() {
-        drive = PinpointDrive(hardwareMap, Pose2d(0.0, 0.0, 0.0))
+        drive = IHDrive(hardwareMap, Pose2d(0.0, 0.0, 0.0))
         g1 = PandaGamepad(gamepad1)
         g2 = PandaGamepad(gamepad2)
         shooter = Shooter(hardwareMap)
         ramp = Ramp(hardwareMap)
         collection = Collection(hardwareMap)
-        drive.pose = LocationShare.robotLocation
+        drive.localizer.pose = LocationShare.robotLocation
     }
 
     override fun start() {
         lastTime = runtime
+        runningActions.add(ramp.homeRamp())
     }
 
     fun getDeltaTime(): Double {
@@ -67,6 +69,8 @@ class CompetitionTeleop : OpMode() {
     }
 
     override fun loop() {
+        val robotPose = drive.localizer.pose
+
         //update delta time
         val deltaTime = getDeltaTime()
         //telemetry.addData("seconds/loop", deltaTime)
@@ -91,15 +95,15 @@ class CompetitionTeleop : OpMode() {
         }
         runningActions = newActions
 
-        telemetry.addData("x", drive.pose.position.x)
-        telemetry.addData("y", drive.pose.position.y)
-        telemetry.addData("heading (deg)", Math.toDegrees(drive.pose.heading.toDouble()))
+        telemetry.addData("x", robotPose.position.x)
+        telemetry.addData("y", robotPose.position.y)
+        telemetry.addData("heading (deg)", Math.toDegrees(robotPose.heading.toDouble()))
 
         telemetry.addData("ramp position", ramp.getPosition())
         packet.field().setRotation(Math.PI / 2)
         packet.fieldOverlay().setRotation(-Math.PI / 2)
         packet.fieldOverlay().setStroke("#3F51B5")
-        Drawing.drawRobot(packet.fieldOverlay(), drive.pose)
+        Drawing.drawRobot(packet.fieldOverlay(), robotPose)
         FtcDashboard.getInstance().sendTelemetryPacket(packet)
 
         //telemetry.addData("Ramp position", ramp.ramp.currentPosition)
@@ -110,8 +114,8 @@ class CompetitionTeleop : OpMode() {
         drive.updatePoseEstimate()
 
         /* driver 1 */
-        val rawHeading = drive.getPinpoint().heading
-        val heading: Rotation2d = Rotation2d.fromDouble(rawHeading - headingOffset)
+        val rawHeading = drive.localizer.pose.heading
+        val heading: Rotation2d = Rotation2d.fromDouble(rawHeading.toDouble() - headingOffset)
         val slowSpeed = 0.8 //Normally go about 80% of our fastest speed
 
         val input = Vector2d(
@@ -134,15 +138,15 @@ class CompetitionTeleop : OpMode() {
             )
 
             // The angle from the center of the robot to the shooter relative to the field
-            val robotToShooterAngleGlobal = robotToShooterAngleRelative + drive.pose.heading.toDouble()
+            val robotToShooterAngleGlobal = robotToShooterAngleRelative + robotPose.heading.toDouble()
 
             // The position and angle of the shooter relative to the field
             val shooterPose = Pose2d(
                 Vector2d(
-                    drive.pose.position.x + robotToShooterRadius * cos(robotToShooterAngleGlobal),
-                    drive.pose.position.y + robotToShooterRadius * sin(robotToShooterAngleGlobal)
+                    robotPose.position.x + robotToShooterRadius * cos(robotToShooterAngleGlobal),
+                    robotPose.position.y + robotToShooterRadius * sin(robotToShooterAngleGlobal)
                 ),
-                shooterRelativeToRobotPose.heading * drive.pose.heading
+                shooterRelativeToRobotPose.heading * robotPose.heading
             )
 
             // The position of the goal relative to the shooter
@@ -162,16 +166,18 @@ class CompetitionTeleop : OpMode() {
 
             // proportional constant for turning, increase to turn more sharply, decrease to turn slower
             val kP = 1.0
+            val kFeedforward = 0.05
 
             val error = Rotation2d.exp(shooterToGoalAngle) - shooterPose.heading
-            val errorScaled = error.toDouble() * kP
-            //drive.setDrivePowers(
-            //    PoseVelocity2d(
-            //        heading.inverse().times(input * slowSpeed),
-            //        errorScaled
-            //    )
-//
-            //)
+            val errorScaled = error * kP + kFeedforward * (error/abs(error))
+
+            drive.setDrivePowers(
+                PoseVelocity2d(
+                    heading.inverse().times(input * slowSpeed),
+                    errorScaled
+                )
+            )
+
             telemetry.addData("error", errorScaled)
             telemetry.addData("targetAngle (deg)", Math.toDegrees(shooterToGoalAngle))
 
@@ -193,7 +199,7 @@ class CompetitionTeleop : OpMode() {
             }
         }
 
-        if (g1.b.justPressed()) headingOffset = rawHeading
+        if (g1.b.justPressed()) headingOffset = rawHeading.toDouble()
 
 
 
@@ -213,8 +219,7 @@ class CompetitionTeleop : OpMode() {
 
         if (g2.dpadLeft.justPressed()) {
             runningActions.add(ramp.index())
-        }
-        if (g2.dpadLeft.justReleased()) {
+        } else if (g2.dpadLeft.justReleased()) {
             runningActions.add(ramp.shoot())
         }
 

@@ -1,29 +1,38 @@
-package org.firstinspires.ftc.teamcode.roadrunner.tuning
+package org.firstinspires.ftc.teamcode.roadrunner.tuning;
 
-import com.acmerobotics.roadrunner.ftc.Encoder
-import com.acmerobotics.roadrunner.ftc.LazyImu
-import com.acmerobotics.roadrunner.ftc.OverflowEncoder
-import com.acmerobotics.roadrunner.ftc.TuningFiles
-import kotlin.collections.indices
-import kotlin.collections.isNotEmpty
-import kotlin.collections.map
 import com.acmerobotics.dashboard.FtcDashboard
 import com.acmerobotics.dashboard.telemetry.MultipleTelemetry
-import com.acmerobotics.roadrunner.*
+import com.acmerobotics.roadrunner.MecanumKinematics
+import com.acmerobotics.roadrunner.MotorFeedforward
+import com.acmerobotics.roadrunner.PoseVelocity2d
+import com.acmerobotics.roadrunner.PoseVelocity2dDual
+import com.acmerobotics.roadrunner.Rotation2d
+import com.acmerobotics.roadrunner.TankKinematics
+import com.acmerobotics.roadrunner.Time
+import com.acmerobotics.roadrunner.TimeProfile
+import com.acmerobotics.roadrunner.Vector2d
+import com.acmerobotics.roadrunner.constantProfile
+import com.acmerobotics.roadrunner.ftc.Encoder
+import com.acmerobotics.roadrunner.ftc.EncoderGroup
+import com.acmerobotics.roadrunner.ftc.LazyImu
+import com.acmerobotics.roadrunner.ftc.LynxQuadratureEncoderGroup
+import com.acmerobotics.roadrunner.ftc.OTOSEncoderGroup
+import com.acmerobotics.roadrunner.ftc.OTOSIMU
+import com.acmerobotics.roadrunner.ftc.RollingThreeMedian
+import com.acmerobotics.roadrunner.ftc.TuningFiles
 import com.google.gson.annotations.SerializedName
-import com.qualcomm.hardware.lynx.LynxDcMotorController
-import com.qualcomm.hardware.lynx.LynxModule
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode
 import com.qualcomm.robotcore.hardware.DcMotor
 import com.qualcomm.robotcore.hardware.DcMotorEx
-import com.qualcomm.robotcore.hardware.DcMotorImplEx
 import com.qualcomm.robotcore.hardware.HardwareMap
 import com.qualcomm.robotcore.hardware.VoltageSensor
-import com.qualcomm.robotcore.util.SerialNumber
+import com.qualcomm.robotcore.util.ElapsedTime
 import org.firstinspires.ftc.robotcore.external.Telemetry
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit
-import org.firstinspires.ftc.teamcode.roadrunner.KinematicsIDrive
+import org.firstinspires.ftc.teamcode.roadrunner.IHKinematics
+import kotlin.math.abs
 import kotlin.math.absoluteValue
+import kotlin.math.atan2
 import kotlin.math.max
 import kotlin.math.min
 
@@ -53,73 +62,95 @@ enum class DriveType {
     MECANUM,
     @SerializedName("tank")
     TANK,
-    @SerializedName("IH")
+    @SerializedName("ih")
     IH
 }
-
-private fun unwrap(e: Encoder): Encoder =
-    when (e) {
-        is OverflowEncoder -> e.encoder
-        else -> e
-    }
 
 fun interface FeedforwardFactory {
     fun make(): MotorFeedforward
 }
 
-class
-    DriveView(
+data class EncoderRef(
+    val groupIndex: Int,
+    val index: Int,
+)
+
+class DriveView(
     val type: DriveType,
     val inPerTick: Double,
     val maxVel: Double,
     val minAccel: Double,
     val maxAccel: Double,
-    val lynxModules: List<LynxModule>,
+    val encoderGroups: List<EncoderGroup>,
     // ordered front to rear
     val leftMotors: List<DcMotorEx>,
     val rightMotors: List<DcMotorEx>,
+    val middleMotors: List<DcMotorEx>,
     // invariant: (leftEncs.isEmpty() && rightEncs.isEmpty()) ||
     //                  (parEncs.isEmpty() && perpEncs.isEmpty())
-    leftEncs: List<Encoder>,
-    rightEncs: List<Encoder>,
-    parEncs: List<Encoder>,
-    perpEncs: List<Encoder>,
+    val leftEncs: List<EncoderRef>,
+    val rightEncs: List<EncoderRef>,
+    val parEncs: List<EncoderRef>,
+    val perpEncs: List<EncoderRef>,
     val imu: LazyImu,
     val voltageSensor: VoltageSensor,
     val feedforwardFactory: FeedforwardFactory,
-    val middleMotor: List<DcMotorEx> = ArrayList(),
+    bogus: Int,
 ) {
+    // Legacy constructor to preserve compatibility with older quickstarts.
+    constructor(
+        type: DriveType,
+        inPerTick: Double,
+        maxVel: Double,
+        minAccel: Double,
+        maxAccel: Double,
+        encoderGroups: List<EncoderGroup>,
+        // ordered front to rear
+        leftMotors: List<DcMotorEx>,
+        rightMotors: List<DcMotorEx>,
+        // invariant: (leftEncs.isEmpty() && rightEncs.isEmpty()) ||
+        //                  (parEncs.isEmpty() && perpEncs.isEmpty())
+        leftEncs: List<EncoderRef>,
+        rightEncs: List<EncoderRef>,
+        parEncs: List<EncoderRef>,
+        perpEncs: List<EncoderRef>,
+        imu: LazyImu,
+        voltageSensor: VoltageSensor,
+        feedforwardFactory: FeedforwardFactory,
+        bogus: Int,
+    ) : this (
+        type,
+    inPerTick,
+    maxVel,
+    minAccel,
+    maxAccel,
+    encoderGroups,
+    // ordered front to rear
+    leftMotors,
+    rightMotors,
+        emptyList(),
+    // invariant: (leftEncs.isEmpty() && rightEncs.isEmpty()) ||
+    //                  (parEncs.isEmpty() && perpEncs.isEmpty())
+    leftEncs,
+    rightEncs,
+    parEncs,
+    perpEncs,
+    imu,
+    voltageSensor,
+    feedforwardFactory,
+    bogus,
+    )
+
     val motors = leftMotors + rightMotors
 
-    val leftEncs = leftEncs.map(::unwrap)
-    val rightEncs = rightEncs.map(::unwrap)
-    val parEncs = parEncs.map(::unwrap)
-    val perpEncs = perpEncs.map(::unwrap)
-
-    val forwardEncsWrapped = leftEncs + rightEncs + parEncs
-    val forwardEncs = forwardEncsWrapped.map(::unwrap)
+    val forwardEncs = leftEncs + rightEncs + parEncs
 
     init {
         require((leftEncs.isEmpty() && rightEncs.isEmpty()) || (parEncs.isEmpty() && perpEncs.isEmpty()))
     }
 
-    fun setBulkCachingMode(mode: LynxModule.BulkCachingMode) {
-        for (m in lynxModules) {
-            m.bulkCachingMode = mode
-        }
-    }
-
-    fun resetAndBulkRead(t: MidpointTimer): Map<SerialNumber, Double> {
-        val times = mutableMapOf<SerialNumber, Double>()
-        for (m in lynxModules) {
-            m.clearBulkCache()
-
-            t.addSplit()
-            m.getBulkData()
-            times[m.serialNumber] = t.addSplit()
-        }
-        return times
-    }
+    fun wrappedEncoder(ref: EncoderRef) = encoderGroups[ref.groupIndex].encoders[ref.index]
+    fun encoder(ref: EncoderRef) = encoderGroups[ref.groupIndex].encoders[ref.index]
 
     fun setDrivePowers(powers: PoseVelocity2d) {
         when (type) {
@@ -146,15 +177,16 @@ class
                     m.power = wheelPowers.right.value() / divisor
                 }
             }
-                DriveType.IH -> {
-                val wheelPowers = KinematicsIDrive(1.0).inverse(PoseVelocity2dDual.constant<Time>(powers, 1))
+
+            DriveType.IH -> {
+                val wheelPowers = IHKinematics(1.0).inverse(PoseVelocity2dDual.constant<Time>(powers, 1))
                 val maxPowerMag = wheelPowers.all().maxOfOrNull { it.value().absoluteValue }!!
                 val divisor = max(1.0, maxPowerMag)
 
-                    leftMotors[0].power = wheelPowers.left.value() / divisor
-                    rightMotors[0].power = wheelPowers.right.value() / divisor
-                    middleMotor[0].power = wheelPowers.middle.value() / divisor
-                }
+                leftMotors[0].power = wheelPowers.left.value() / divisor
+                rightMotors[0].power = wheelPowers.right.value() / divisor
+                middleMotors[0].power = wheelPowers.middle.value() / divisor
+            }
         }
     }
 }
@@ -164,15 +196,22 @@ interface DriveViewFactory {
 }
 
 // designed for manual bulk caching
-private fun recordEncoderData(e: Encoder, ts: Map<SerialNumber, Double>, ps: MutableSignal, vs: MutableSignal) {
-    val sn = (e.controller as LynxDcMotorController).serialNumber
-    val p = e.getPositionAndVelocity()
+private fun recordUnwrappedEncoderData(gs: List<EncoderGroup>, ts: List<Double>, er: EncoderRef, ps: MutableSignal, vs: MutableSignal) {
+    val t = ts[er.groupIndex]
+    val e = gs[er.groupIndex].unwrappedEncoders[er.index]
+    val pv = e.getPositionAndVelocity()
 
-    ps.times.add(ts[sn]!!)
-    ps.values.add(p.position.toDouble())
+    ps.times.add(t)
+    ps.values.add(pv.position.toDouble())
 
-    vs.times.add(ts[sn]!!)
-    vs.values.add(p.velocity.toDouble())
+    if (pv.velocity != null) {
+        vs.times.add(t)
+        vs.values.add(pv.velocity!!.toDouble())
+    }
+}
+
+fun shouldFixVels(view: DriveView, er: EncoderRef): Boolean {
+    return view.encoderGroups[er.groupIndex] is LynxQuadratureEncoderGroup
 }
 
 class AngularRampLogger(val dvf: DriveViewFactory) : LinearOpMode() {
@@ -187,7 +226,6 @@ class AngularRampLogger(val dvf: DriveViewFactory) : LinearOpMode() {
 
     override fun runOpMode() {
         val view = dvf.make(hardwareMap)
-        view.setBulkCachingMode(LynxModule.BulkCachingMode.MANUAL)
 
         val data = object {
             val type = view.type
@@ -202,6 +240,10 @@ class AngularRampLogger(val dvf: DriveViewFactory) : LinearOpMode() {
             val rightEncVels = view.rightEncs.map { MutableSignal() }
             val parEncVels = view.parEncs.map { MutableSignal() }
             val perpEncVels = view.perpEncs.map { MutableSignal() }
+            val leftEncFixVels = view.leftEncs.map { shouldFixVels(view, it) }
+            val rightEncFixVels = view.rightEncs.map { shouldFixVels(view, it) }
+            val parEncFixVels = view.parEncs.map { shouldFixVels(view, it) }
+            val perpEncFixVels = view.perpEncs.map { shouldFixVels(view, it) }
             val angVels = listOf(MutableSignal(), MutableSignal(), MutableSignal())
         }
 
@@ -230,39 +272,46 @@ class AngularRampLogger(val dvf: DriveViewFactory) : LinearOpMode() {
             data.voltages.values.add(view.voltageSensor.voltage)
             data.voltages.times.add(t.addSplit())
 
-            val encTimes = view.resetAndBulkRead(t)
+            val encTimes = view.encoderGroups.map {
+                it.bulkRead()
+                t.addSplit()
+            }
 
             for (i in view.leftEncs.indices) {
-                recordEncoderData(
-                    view.leftEncs[i],
+                recordUnwrappedEncoderData(
+                    view.encoderGroups,
                     encTimes,
+                    view.leftEncs[i],
                     data.leftEncPositions[i],
                     data.leftEncVels[i]
                 )
             }
 
             for (i in view.rightEncs.indices) {
-                recordEncoderData(
-                    view.rightEncs[i],
+                recordUnwrappedEncoderData(
+                    view.encoderGroups,
                     encTimes,
+                    view.rightEncs[i],
                     data.rightEncPositions[i],
                     data.rightEncVels[i]
                 )
             }
 
             for (i in view.parEncs.indices) {
-                recordEncoderData(
-                    view.parEncs[i],
+                recordUnwrappedEncoderData(
+                    view.encoderGroups,
                     encTimes,
+                    view.parEncs[i],
                     data.parEncPositions[i],
                     data.parEncVels[i]
                 )
             }
 
             for (i in view.perpEncs.indices) {
-                recordEncoderData(
-                    view.perpEncs[i],
+                recordUnwrappedEncoderData(
+                    view.encoderGroups,
                     encTimes,
+                    view.perpEncs[i],
                     data.perpEncPositions[i],
                     data.perpEncVels[i]
                 )
@@ -294,6 +343,7 @@ private fun avgPos(es: List<Encoder>) = es.sumOf { it.getPositionAndVelocity().p
 
 class ForwardPushTest(val dvf: DriveViewFactory) : LinearOpMode() {
     override fun runOpMode() {
+        telemetry = MultipleTelemetry(telemetry, FtcDashboard.getInstance().telemetry)
         val view = dvf.make(hardwareMap)
 
         for (m in view.motors) {
@@ -302,9 +352,14 @@ class ForwardPushTest(val dvf: DriveViewFactory) : LinearOpMode() {
 
         waitForStart()
 
-        val initAvgPos = avgPos(view.forwardEncs)
+        val es = view.forwardEncs.map { view.encoder(it) }
+        val initAvgPos = avgPos(es)
         while (opModeIsActive()) {
-            telemetry.addData("ticks traveled", avgPos(view.forwardEncs) - initAvgPos)
+            for (g in view.encoderGroups) {
+                g.bulkRead()
+            }
+
+            telemetry.addData("ticks traveled", avgPos(es) - initAvgPos)
             telemetry.update()
         }
     }
@@ -326,14 +381,13 @@ class ForwardRampLogger(val dvf: DriveViewFactory) : LinearOpMode() {
             "Only run this op mode if you're using dead wheels."
         }
 
-        view.setBulkCachingMode(LynxModule.BulkCachingMode.MANUAL)
-
         val data = object {
             val type = view.type
             val powers = view.motors.map { MutableSignal() }
             val voltages = MutableSignal()
             val forwardEncPositions = view.forwardEncs.map { MutableSignal() }
             val forwardEncVels = view.forwardEncs.map { MutableSignal() }
+            val forwardEncFixVels = view.forwardEncs.map { shouldFixVels(view, it) }
         }
 
         waitForStart()
@@ -352,12 +406,16 @@ class ForwardRampLogger(val dvf: DriveViewFactory) : LinearOpMode() {
             data.voltages.values.add(view.voltageSensor.voltage)
             data.voltages.times.add(t.addSplit())
 
-            val encTimes = view.resetAndBulkRead(t)
+            val encTimes = view.encoderGroups.map {
+                it.bulkRead()
+                t.addSplit()
+            }
 
             for (i in view.forwardEncs.indices) {
-                recordEncoderData(
-                    view.forwardEncs[i],
+                recordUnwrappedEncoderData(
+                    view.encoderGroups,
                     encTimes,
+                    view.forwardEncs[i],
                     data.forwardEncPositions[i],
                     data.forwardEncVels[i]
                 )
@@ -384,12 +442,10 @@ class LateralRampLogger(val dvf: DriveViewFactory) : LinearOpMode() {
 
     override fun runOpMode() {
         val view = dvf.make(hardwareMap)
-        view.setBulkCachingMode(LynxModule.BulkCachingMode.MANUAL)
 
         require(view.type == DriveType.MECANUM || view.type == DriveType.IH) {
-            "Only mecanum drives should run this op mode."
+            "Only mecanum or IH drives should run this op mode."
         }
-
 
         val data = object {
             val type = view.type
@@ -401,6 +457,7 @@ class LateralRampLogger(val dvf: DriveViewFactory) : LinearOpMode() {
             val voltages = MutableSignal()
             val perpEncPositions = view.perpEncs.map { MutableSignal() }
             val perpEncVels = view.perpEncs.map { MutableSignal() }
+            val perpEncFixVels = view.perpEncs.map { shouldFixVels(view, it) }
         }
 
         waitForStart()
@@ -416,25 +473,28 @@ class LateralRampLogger(val dvf: DriveViewFactory) : LinearOpMode() {
         }
 
         while (opModeIsActive()) {
-            /* if(view.type == DriveType.MECANUM) {
+            if (view.type == DriveType.MECANUM) {
                 setMotorPower(view.leftMotors[0], -1, data.frontLeftPower)
                 setMotorPower(view.rightMotors[0], +1, data.frontRightPower)
                 setMotorPower(view.leftMotors[1], +1, data.backLeftPower)
                 setMotorPower(view.rightMotors[1], -1, data.backRightPower)
-            } else */
-            if (view.type == DriveType.IH) {
-                setMotorPower(view.middleMotor[0], 1, data.middlePower)
+            } else {
+                setMotorPower(view.middleMotors[0], 1, data.middlePower)
             }
 
             data.voltages.values.add(view.voltageSensor.voltage)
             data.voltages.times.add(t.addSplit())
 
-            val encTimes = view.resetAndBulkRead(t)
+            val encTimes = view.encoderGroups.map {
+                it.bulkRead()
+                t.addSplit()
+            }
 
             for (i in view.perpEncs.indices) {
-                recordEncoderData(
-                    view.perpEncs[i],
+                recordUnwrappedEncoderData(
+                    view.encoderGroups,
                     encTimes,
+                    view.perpEncs[i],
                     data.perpEncPositions[i],
                     data.perpEncVels[i]
                 )
@@ -451,17 +511,18 @@ class LateralRampLogger(val dvf: DriveViewFactory) : LinearOpMode() {
 
 fun lateralSum(view: DriveView): Double {
     return 0.25 * (
-            -view.leftEncs[0].getPositionAndVelocity().position
-                    +view.leftEncs[1].getPositionAndVelocity().position
-                    -view.rightEncs[1].getPositionAndVelocity().position
-                    +view.rightEncs[0].getPositionAndVelocity().position)
+            -view.encoder(view.leftEncs[0]).getPositionAndVelocity().position
+                    +view.encoder(view.leftEncs[1]).getPositionAndVelocity().position
+                    -view.encoder(view.rightEncs[1]).getPositionAndVelocity().position
+                    +view.encoder(view.rightEncs[0]).getPositionAndVelocity().position)
 }
 
 class LateralPushTest(val dvf: DriveViewFactory) : LinearOpMode() {
     override fun runOpMode() {
+        telemetry = MultipleTelemetry(telemetry, FtcDashboard.getInstance().telemetry)
         val view = dvf.make(hardwareMap)
 
-        require(view.type == DriveType.MECANUM) {
+        require(view.type == DriveType.MECANUM || view.type == DriveType.IH) {
             "Only mecanum drives should run this op mode."
         }
         require(view.parEncs.isEmpty() && view.perpEncs.isEmpty()) {
@@ -476,6 +537,10 @@ class LateralPushTest(val dvf: DriveViewFactory) : LinearOpMode() {
 
         val initLateralSum = lateralSum(view)
         while (opModeIsActive()) {
+            for (g in view.encoderGroups) {
+                g.bulkRead()
+            }
+
             telemetry.addData("ticks traveled", lateralSum(view) - initLateralSum)
             telemetry.update()
         }
@@ -494,7 +559,7 @@ class ManualFeedforwardTuner(val dvf: DriveViewFactory) : LinearOpMode() {
     }
 
     override fun runOpMode() {
-        val telemetry = MultipleTelemetry(this.telemetry, FtcDashboard.getInstance().telemetry)
+        telemetry = MultipleTelemetry(telemetry, FtcDashboard.getInstance().telemetry)
 
         val view = dvf.make(hardwareMap)
         val profile = TimeProfile(constantProfile(
@@ -513,6 +578,9 @@ class ManualFeedforwardTuner(val dvf: DriveViewFactory) : LinearOpMode() {
         var movingForwards = true
         var startTs = System.nanoTime() / 1e9
 
+        val lastPositions = MutableList(view.forwardEncs.size) { 0 }
+        val lastTimes = view.forwardEncs.map { ElapsedTime() }
+        val velEstimates = view.forwardEncs.map { RollingThreeMedian() }
         while (!isStopRequested) {
             telemetry.addData("mode", mode)
 
@@ -522,8 +590,24 @@ class ManualFeedforwardTuner(val dvf: DriveViewFactory) : LinearOpMode() {
                         mode = Mode.DRIVER_MODE
                     }
 
-                    for (i in view.forwardEncsWrapped.indices) {
-                        val v = view.forwardEncsWrapped[i].getPositionAndVelocity().velocity
+                    for (g in view.encoderGroups) {
+                        g.bulkRead()
+                    }
+
+                    for (i in view.forwardEncs.indices) {
+                        val ref = view.forwardEncs[i]
+
+                        val pv = view.encoder(ref).getPositionAndVelocity()
+                        val v = if (pv.velocity == null) {
+                            val lastPos = lastPositions[i]
+                            lastPositions[i] = pv.position
+                            val currVelocity = velEstimates[i].update((pv.position - lastPos) / lastTimes[i].seconds())
+                            lastTimes[i].reset()
+                            currVelocity
+                        } else {
+                            pv.velocity!!.toDouble()
+                        }
+
                         telemetry.addData("v$i", view.inPerTick * v)
                     }
 
@@ -539,7 +623,6 @@ class ManualFeedforwardTuner(val dvf: DriveViewFactory) : LinearOpMode() {
                         v = v.unaryMinus()
                     }
                     telemetry.addData("vref", v[0])
-
                     val power = view.feedforwardFactory.make().compute(v) / view.voltageSensor.voltage
                     view.setDrivePowers(PoseVelocity2d(Vector2d(power, 0.0), 0.0))
                 }
@@ -553,7 +636,7 @@ class ManualFeedforwardTuner(val dvf: DriveViewFactory) : LinearOpMode() {
                     view.setDrivePowers(PoseVelocity2d(
                         Vector2d(
                             -gamepad1.left_stick_y.toDouble(),
-                            -gamepad1.left_stick_x.toDouble()
+                            if (view.type == DriveType.TANK) 0.0 else -gamepad1.left_stick_x.toDouble()
                         ),
                         -gamepad1.right_stick_x.toDouble()
                     ))
@@ -578,7 +661,7 @@ class MecanumMotorDirectionDebugger(val dvf: DriveViewFactory) : LinearOpMode() 
             "Only mecanum drives should run this op mode."
         }
 
-        val telemetry = MultipleTelemetry(this.telemetry, FtcDashboard.getInstance().telemetry)
+        telemetry = MultipleTelemetry(telemetry, FtcDashboard.getInstance().telemetry)
 
         telemetry.addLine("Press play to begin the debugging op mode")
         telemetry.update()
@@ -602,11 +685,15 @@ class MecanumMotorDirectionDebugger(val dvf: DriveViewFactory) : LinearOpMode() 
 
             val hasDriveEncoders = view.leftEncs.isNotEmpty() && view.rightEncs.isNotEmpty()
 
+            for (g in view.encoderGroups) {
+                g.bulkRead()
+            }
+
             if (gamepad1.x) {
                 view.leftMotors[0].power = MOTOR_POWER
                 telemetry.addLine("Running Motor: Front Left")
                 if (hasDriveEncoders) {
-                    val pv = view.leftEncs[0].getPositionAndVelocity()
+                    val pv = view.encoder(view.leftEncs[0]).getPositionAndVelocity()
                     telemetry.addLine("Encoder Position: " + pv.position)
                     telemetry.addLine("Encoder Velocity: " + pv.velocity)
                 }
@@ -614,7 +701,7 @@ class MecanumMotorDirectionDebugger(val dvf: DriveViewFactory) : LinearOpMode() 
                 view.rightMotors[0].power = MOTOR_POWER
                 telemetry.addLine("Running Motor: Front Right")
                 if (hasDriveEncoders) {
-                    val pv = view.rightEncs[0].getPositionAndVelocity()
+                    val pv = view.encoder(view.rightEncs[0]).getPositionAndVelocity()
                     telemetry.addLine("Encoder Position: " + pv.position)
                     telemetry.addLine("Encoder Velocity: " + pv.velocity)
                 }
@@ -622,7 +709,7 @@ class MecanumMotorDirectionDebugger(val dvf: DriveViewFactory) : LinearOpMode() 
                 view.rightMotors[1].power = MOTOR_POWER
                 telemetry.addLine("Running Motor: Rear Right")
                 if (hasDriveEncoders) {
-                    val pv = view.rightEncs[1].getPositionAndVelocity()
+                    val pv = view.encoder(view.rightEncs[1]).getPositionAndVelocity()
                     telemetry.addLine("Encoder Position: " + pv.position)
                     telemetry.addLine("Encoder Velocity: " + pv.velocity)
                 }
@@ -630,7 +717,7 @@ class MecanumMotorDirectionDebugger(val dvf: DriveViewFactory) : LinearOpMode() 
                 view.leftMotors[1].power = MOTOR_POWER
                 telemetry.addLine("Running Motor: Rear Left")
                 if (hasDriveEncoders) {
-                    val pv = view.leftEncs[1].getPositionAndVelocity()
+                    val pv = view.encoder(view.leftEncs[1]).getPositionAndVelocity()
                     telemetry.addLine("Encoder Position: " + pv.position)
                     telemetry.addLine("Encoder Velocity: " + pv.velocity)
                 }
@@ -654,7 +741,7 @@ class DeadWheelDirectionDebugger(val dvf: DriveViewFactory) : LinearOpMode() {
             "Only run this op mode if you're using dead wheels."
         }
 
-        val telemetry = MultipleTelemetry(this.telemetry, FtcDashboard.getInstance().telemetry)
+        telemetry = MultipleTelemetry(telemetry, FtcDashboard.getInstance().telemetry)
 
         waitForStart()
 
@@ -664,18 +751,199 @@ class DeadWheelDirectionDebugger(val dvf: DriveViewFactory) : LinearOpMode() {
             telemetry.addLine("Move each dead wheel individually and make sure the direction is correct")
             telemetry.addLine()
 
+            for (g in view.encoderGroups) {
+                g.bulkRead()
+            }
+
             telemetry.addLine("Parallel Dead Wheels (should increase forward)")
             for (i in view.parEncs.indices) {
-                telemetry.addLine("  Wheel $i Position: ${view.parEncs[i].getPositionAndVelocity().position}")
+                telemetry.addLine("  Wheel $i Position: ${view.encoder(view.parEncs[i]).getPositionAndVelocity().position}")
             }
             telemetry.addLine()
 
             telemetry.addLine("Perpendicular Dead Wheels (should increase leftward)")
             for (i in view.perpEncs.indices) {
-                telemetry.addLine("  Wheel $i Position: ${view.perpEncs[i].getPositionAndVelocity().position}")
+                telemetry.addLine("  Wheel $i Position: ${view.encoder(view.perpEncs[i]).getPositionAndVelocity().position}")
             }
 
             telemetry.update()
+        }
+    }
+}
+
+const val OTOS_ERROR_MSG =
+    """
+    Only run this OpMode if you are using a Sparkfun OTOS.
+    This OpMode requires OTOS to be properly configured. 
+    See Tuning docs for details.
+    """
+
+/* Originally written by j5155; ported to Kotlin by zach.waffle */
+class OTOSAngularScalarTuner(val dvf: DriveViewFactory) : LinearOpMode() {
+    override fun runOpMode() {
+        val view = dvf.make(hardwareMap)
+
+        require(view.imu is OTOSIMU) { OTOS_ERROR_MSG }
+
+        val imu = view.imu.get()
+        telemetry = MultipleTelemetry(telemetry, FtcDashboard.getInstance().telemetry)
+
+        var radsTurned = 0.0
+        var lastHeading = imu.robotYawPitchRollAngles.getYaw(AngleUnit.RADIANS)
+
+        telemetry.addLine("OTOS Angular Scalar Tuner")
+        telemetry.addLine("Press START, then rotate the robot on the ground 10 times (3600 degrees).")
+        telemetry.update()
+        waitForStart()
+        while (opModeIsActive()) {
+            val otosHeading = imu.robotYawPitchRollAngles.getYaw(AngleUnit.RADIANS)
+
+            radsTurned += (Rotation2d.exp(otosHeading) - Rotation2d.exp(lastHeading))
+            lastHeading = otosHeading
+
+            telemetry.addData("OTOS Heading (radians)", otosHeading)
+            telemetry.addData("Uncorrected Degrees Turned", Math.toDegrees(radsTurned))
+            telemetry.addData("Calculated Angular Scalar", 3600 / Math.toDegrees(radsTurned))
+            telemetry.update()
+
+            view.setDrivePowers(PoseVelocity2d(
+                Vector2d(
+                    -gamepad1.left_stick_y.toDouble(),
+                    if (view.type == DriveType.TANK) 0.0 else -gamepad1.left_stick_x.toDouble()
+                ),
+                -gamepad1.right_stick_x.toDouble()
+            ))
+        }
+    }
+}
+
+class OTOSLinearScalarTuner(val dvf: DriveViewFactory) : LinearOpMode() {
+    override fun runOpMode() {
+        val view = dvf.make(hardwareMap)
+
+        require(view.encoderGroups.first() is OTOSEncoderGroup) { OTOS_ERROR_MSG }
+
+        val parallelEnc = view.encoderGroups.first().encoders.first()
+        val perpEnc = view.encoderGroups.first().encoders.last()
+
+        telemetry = MultipleTelemetry(telemetry, FtcDashboard.getInstance().telemetry)
+
+        telemetry.addLine("OTOS Linear Scalar Tuner")
+        telemetry.addLine("Press START, then push the robot a known distance.")
+        telemetry.update()
+
+        waitForStart()
+
+        while (opModeIsActive()) {
+            for (g in view.encoderGroups) {
+                g.bulkRead()
+            }
+
+            val xPos = parallelEnc.getPositionAndVelocity().position * view.inPerTick
+            val yPos = perpEnc.getPositionAndVelocity().position * view.inPerTick
+
+            telemetry.addData("Uncorrected Distance Traveled X", xPos)
+            telemetry.addData("Uncorrected Distance Traveled Y", yPos)
+            telemetry.update()
+
+            view.setDrivePowers(PoseVelocity2d(
+                Vector2d(
+                    -gamepad1.left_stick_y.toDouble(),
+                    if (view.type == DriveType.TANK) 0.0 else -gamepad1.left_stick_x.toDouble()
+                ),
+                -gamepad1.right_stick_x.toDouble()
+            ))
+        }
+    }
+}
+
+/* Originally written by j5155; ported to Kotlin by zach.waffle */
+class OTOSHeadingOffsetTuner(val dvf: DriveViewFactory) : LinearOpMode() {
+    @Throws(InterruptedException::class)
+    override fun runOpMode() {
+        val view = dvf.make(hardwareMap)
+
+        require(view.encoderGroups.first() is OTOSEncoderGroup) { OTOS_ERROR_MSG }
+
+        val parallelEnc = view.encoderGroups.first().encoders.first()
+        val perpEnc = view.encoderGroups.first().encoders.last()
+
+        telemetry = MultipleTelemetry(telemetry, FtcDashboard.getInstance().telemetry)
+
+        telemetry.addLine("OTOS Heading Offset Tuner")
+        telemetry.addLine("Line the side of the robot against a wall and Press START.")
+        telemetry.addLine("Then push the robot forward some distance.")
+        telemetry.update()
+
+        waitForStart()
+        while (opModeIsActive()) {
+            for (g in view.encoderGroups) {
+                g.bulkRead()
+            }
+
+            val xPos = parallelEnc.getPositionAndVelocity().position * view.inPerTick
+            val yPos = perpEnc.getPositionAndVelocity().position * view.inPerTick
+
+            telemetry.addData("Heading Offset (radians, enter this one into OTOSLocalizer!)", atan2(yPos, xPos))
+            telemetry.addData("Heading Offset (degrees)", Math.toDegrees(atan2(yPos, xPos)))
+            telemetry.update()
+
+            view.setDrivePowers(PoseVelocity2d(
+                Vector2d(
+                    -gamepad1.left_stick_y.toDouble(),
+                    if (view.type == DriveType.TANK) 0.0 else -gamepad1.left_stick_x.toDouble()
+                ),
+                -gamepad1.right_stick_x.toDouble()
+            ))
+        }
+    }
+}
+
+/* Originally written by j5155; ported to Kotlin by zach.waffle */
+class OTOSPositionOffsetTuner(val dvf: DriveViewFactory) : LinearOpMode() {
+    @Throws(InterruptedException::class)
+    override fun runOpMode() {
+        val view = dvf.make(hardwareMap)
+
+        require(view.imu is OTOSIMU) { OTOS_ERROR_MSG }
+        require(view.encoderGroups.first() is OTOSEncoderGroup) { OTOS_ERROR_MSG }
+
+        val parallelEnc = view.encoderGroups.first().encoders.first()
+        val perpEnc = view.encoderGroups.first().encoders.last()
+
+        telemetry = MultipleTelemetry(telemetry, FtcDashboard.getInstance().telemetry)
+
+        telemetry.addLine("OTOS Position Offset Tuner")
+        telemetry.addLine("Line the robot against the corner of two walls facing forward and Press START.")
+        telemetry.addLine("Then rotate the robot exactly 180 degrees and press it back into the corner.")
+        telemetry.addLine("Finally, copy the pose offset into OTOSLocalizer.")
+        telemetry.update()
+        waitForStart()
+        while (opModeIsActive()) {
+            for (g in view.encoderGroups) {
+                g.bulkRead()
+            }
+
+            val heading = view.imu.get().robotYawPitchRollAngles.getYaw(AngleUnit.RADIANS)
+            val xPos = parallelEnc.getPositionAndVelocity().position * view.inPerTick
+            val yPos = perpEnc.getPositionAndVelocity().position * view.inPerTick
+
+            telemetry.addData("Heading (deg)", Math.toDegrees(heading))
+            if (abs(Math.toDegrees(heading)) > 175) {
+                telemetry.addData("X Offset", xPos / 2)
+                telemetry.addData("Y Offset", yPos / 2)
+            } else {
+                telemetry.addLine("Rotate the robot 180 degrees and align it to the corner again.")
+            }
+            telemetry.update()
+
+            view.setDrivePowers(PoseVelocity2d(
+                Vector2d(
+                    -gamepad1.left_stick_y.toDouble(),
+                    if (view.type == DriveType.TANK) 0.0 else -gamepad1.left_stick_x.toDouble()
+                ),
+                -gamepad1.right_stick_x.toDouble()
+            ))
         }
     }
 }

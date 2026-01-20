@@ -15,9 +15,9 @@ class Ramp(hardwareMap: HardwareMap) {
      * know the position of the scoringArm
      */
     enum class RampState(val position: Int) {
-        Index(450),
+        Index(490), // was 450 pre 1/19
         Shoot(470), // was 360 pre 1/14
-        Collect(1060), // was 896 pre 1/14
+        Collect(1070), // was 1060 pre 1/19
         Partner (0), //
         Manual(-1)
     }
@@ -53,8 +53,8 @@ class Ramp(hardwareMap: HardwareMap) {
         override fun run(packet: TelemetryPacket): Boolean {
             if (!initialized) {
                 targetPosition = state.position.toDouble()
-                ramp.targetPosition = targetPosition.toInt() - rampOffset
-                rampState= state
+                ramp.targetPosition = targetPosition.toInt() + rampOffset
+                rampState = state
                 initialized = true
             }
             //scoringArm.currentPosition
@@ -77,7 +77,7 @@ class Ramp(hardwareMap: HardwareMap) {
         override fun run(packet: TelemetryPacket): Boolean {
             rampState = RampState.Manual
             targetPosition += input * maxSpeed
-            ramp.targetPosition = targetPosition.toInt() - rampOffset
+            ramp.targetPosition = targetPosition.toInt() + rampOffset
             packet.put("Target Position", ramp.targetPosition)
             return false
         }
@@ -102,9 +102,9 @@ class Ramp(hardwareMap: HardwareMap) {
             packet.put("Current", current)
             if (current > 2.8) {
                 ramp.mode = DcMotor.RunMode.STOP_AND_RESET_ENCODER
+                rampOffset = StallOffset
                 ramp.targetPosition = StallOffset
                 ramp.mode = DcMotor.RunMode.RUN_TO_POSITION
-                ramp.mode = DcMotor.RunMode.STOP_AND_RESET_ENCODER
                 ramp.power = power
                 return false
             }

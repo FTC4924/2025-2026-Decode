@@ -4,11 +4,9 @@ import com.acmerobotics.roadrunner.Pose2d
 import com.acmerobotics.roadrunner.Vector2d
 import com.acmerobotics.roadrunner.ftc.runBlocking
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous
-import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode
 import com.qualcomm.robotcore.eventloop.opmode.OpMode
 import org.firstinspires.ftc.teamcode.LocationShare
 import org.firstinspires.ftc.teamcode.roadrunner.IHDrive
-import org.firstinspires.ftc.teamcode.roadrunner.PinpointDrive
 
 
 @Autonomous
@@ -17,7 +15,7 @@ class LeaveRedWall : OpMode() {
     val beginPose = Pose2d(61.0, -15.0, -Math.PI / 2) // was x = 30.5, y = 66
 
     override fun init() {
-        drive = PinpointDrive(hardwareMap, beginPose)
+        drive = IHDrive(hardwareMap, beginPose)
     }
 
     override fun start() {
@@ -33,6 +31,6 @@ class LeaveRedWall : OpMode() {
     }
 
     override fun stop() {
-        LocationShare.robotLocation = drive.getPose()
+        LocationShare.robotLocation = drive.localizer.pose
     }
 }
