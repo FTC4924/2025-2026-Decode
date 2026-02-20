@@ -11,7 +11,7 @@ object MeepMeepTesting {
     @JvmStatic
     fun main(args: Array<String>) {
         val meepMeep: MeepMeep = MeepMeep(800)
-        val beginPose = Pose2d(61.0, -15.0, Math.PI)
+        val beginPose = Pose2d(63.0, -15.0, Math.PI)
 
         val myBot: RoadRunnerBotEntity =
             DefaultBotBuilder(meepMeep) // Set bot constraints: maxVel, maxAccel, maxAngVel, maxAngAccel, track width
@@ -23,7 +23,11 @@ object MeepMeepTesting {
         myBot.runAction(
             SequentialAction(
                 drive.actionBuilder(beginPose)
-                    .splineToLinearHeading(Pose2d(Vector2d(-12.0, -12.0), -3*(Math.PI / 4)), Math.PI)
+                    .setTangent(3 * Math.PI/4)
+                    .splineToSplineHeading(
+                        Pose2d(Vector2d(-15.0, 15.0), Math.toRadians(-140.0)),
+                        Math.PI
+                    )
                     .build()
             )
         )

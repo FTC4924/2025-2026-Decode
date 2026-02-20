@@ -17,7 +17,7 @@ class Shooter(hardwareMap: HardwareMap) {
      * know the position of the scoringArm
      */
     enum class ShooterState(val power: Double) {
-        Shooting(0.80), //was 80 1/25
+        Shooting(0.75), //was 80 1/25
         Stopped(0.0),
         Idle(0.0)      //Need to test and update!!!
     }
@@ -25,7 +25,7 @@ class Shooter(hardwareMap: HardwareMap) {
     var shooterState = ShooterState.Stopped
 
     enum class BeltState(val power: Double) {
-        Feeding(0.20), //was 80 1/25
+        Feeding(0.40), //was 80 1/25
         Stopped(0.0),
     }
 

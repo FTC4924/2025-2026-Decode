@@ -11,6 +11,7 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp
 import org.firstinspires.ftc.teamcode.LocationShare
 import org.firstinspires.ftc.teamcode.roadrunner.Drawing
 import org.firstinspires.ftc.teamcode.roadrunner.IHDrive
+import org.firstinspires.ftc.teamcode.subsystems.Camera
 import org.firstinspires.ftc.teamcode.subsystems.Collection
 import org.firstinspires.ftc.teamcode.subsystems.Collection.CollectionState
 import org.firstinspires.ftc.teamcode.subsystems.Ramp
@@ -24,7 +25,7 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 @TeleOp(name = "CompetitionTeleop")
-class CompetitionTeleop : OpMode() {
+class RedCompetitionTeleop : OpMode() {
     private lateinit var drive: IHDrive
     private lateinit var g1: PandaGamepad
     private lateinit var g2: PandaGamepad
@@ -32,6 +33,7 @@ class CompetitionTeleop : OpMode() {
     private lateinit var shooter: Shooter
     private lateinit var collection: Collection
     private lateinit var ramp: Ramp
+    private lateinit var camera: Camera
 
     private var headingOffset: Double = 0.0
     private val dash: FtcDashboard = FtcDashboard.getInstance()
@@ -53,12 +55,13 @@ class CompetitionTeleop : OpMode() {
         shooter = Shooter(hardwareMap)
         ramp = Ramp(hardwareMap)
         collection = Collection(hardwareMap)
+        camera = Camera(hardwareMap)
         drive.localizer.pose = LocationShare.robotLocation
     }
 
     override fun start() {
         lastTime = runtime
-        runningActions.add(ramp.homeRamp())
+        //runningActions.add(ramp.homeRamp())
     }
 
     fun getDeltaTime(): Double {
@@ -81,6 +84,13 @@ class CompetitionTeleop : OpMode() {
 
         rightTriggerMax.update(gamepad2.right_trigger.toDouble())
         leftTriggerMax.update(gamepad2.left_trigger.toDouble())
+
+        //print camera data
+        telemetry.addData("resultSeen", camera.updateLL())
+        telemetry.addData("Botpose", camera.LLresults.botpose)
+        telemetry.addData("tx", camera.LLresults.tx)
+        telemetry.addData("ty", camera.LLresults.ty)
+        telemetry.addData("ta", camera.LLresults.ta)
 
         //run and update actions
         val packet = PandaTelemetryPacket(telemetry)
@@ -114,8 +124,9 @@ class CompetitionTeleop : OpMode() {
         drive.updatePoseEstimate()
 
         /* driver 1 */
+        val driverHeading = PI/2
         val rawHeading = drive.localizer.pose.heading
-        val heading: Rotation2d = Rotation2d.fromDouble(rawHeading.toDouble() - headingOffset)
+        val heading: Rotation2d = Rotation2d.fromDouble(rawHeading.toDouble() - headingOffset - driverHeading)
         val slowSpeed = 0.8 //Normally go about 80% of our fastest speed
 
         val input = Vector2d(
@@ -199,7 +210,7 @@ class CompetitionTeleop : OpMode() {
             }
         }
 
-        if (g1.b.justPressed()) headingOffset = rawHeading.toDouble()
+        if (g1.b.justPressed()) headingOffset = rawHeading.toDouble() - driverHeading
 
 
 

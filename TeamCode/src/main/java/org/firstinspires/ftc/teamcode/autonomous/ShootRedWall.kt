@@ -11,12 +11,13 @@ import org.firstinspires.ftc.teamcode.subsystems.Collection
 import org.firstinspires.ftc.teamcode.subsystems.Ramp
 import org.firstinspires.ftc.teamcode.subsystems.Shooter
 import org.firstinspires.ftc.teamcode.teleops.PandaTelemetryPacket
+import kotlin.math.PI
 
 
 @Autonomous
-class ShootBlueWall : OpMode() {
+class ShootRedWall : OpMode() {
 
-    val beginPose = Pose2d(63.0, -15.0, Math.PI) // was x = 30.5, y = 66
+    val beginPose = Pose2d(63.0, 15.0, Math.PI) // was x = 30.5, y = 66
     lateinit var shooter: Shooter
     lateinit var drive: IHDrive
     lateinit var ramp: Ramp
@@ -32,9 +33,9 @@ class ShootBlueWall : OpMode() {
          autoAction = SequentialAction(
              //ramp.homeRamp(),
              drive.actionBuilder(beginPose)
-                 .setTangent(-3 * Math.PI/4)
+                 .setTangent(3 * Math.PI/4)
                  .splineToSplineHeading(
-                     Pose2d(Vector2d(-15.0, -15.0), -Math.PI / 4),
+                     Pose2d(Vector2d(-15.0, 15.0), Math.toRadians(-140.0)),
                      Math.PI
                  )
                  .build(),
@@ -75,16 +76,13 @@ class ShootBlueWall : OpMode() {
              shooter.stop(),
              shooter.stopFeeding(),
              collection.stop(),
-
-                 drive.actionBuilder(beginPose)
-                     .setTangent(-3 * Math.PI/4)
-                     .splineToSplineHeading(
-                         Pose2d(Vector2d(12.0, -24.0), -Math.PI / 4),
-                         Math.PI
-                     )
-                     .build(),
-
-
+             drive.actionBuilder(beginPose)
+                 .setTangent(-3 * Math.PI/4)
+                 .splineToSplineHeading(
+                     Pose2d(Vector2d(12.0, 24.0), -Math.PI / 4),
+                     Math.PI
+                 )
+                 .build(),
 
              //drive.actionBuilder(drive.localizer.pose)
              //    .waitSeconds(1.0)

@@ -15,7 +15,7 @@ class Ramp(hardwareMap: HardwareMap) {
      * know the position of the scoringArm
      */
     enum class RampState(val position: Int) {
-        Index(490), // was 450 pre 1/19
+        Index(445), // was 450 pre 1/19
         Shoot(470), // was 360 pre 1/14
         Collect(1070), // was 1060 pre 1/19
         Partner (0), //
